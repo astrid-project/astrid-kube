@@ -17,9 +17,9 @@ const (
 )
 
 var (
-	signalChan    chan os.Signal
-	stopInformers chan struct{}
-	cleanupDone   chan struct{}
+	signalChan  chan os.Signal
+	stop        chan struct{}
+	cleanupDone chan struct{}
 )
 
 func main() {
@@ -29,11 +29,10 @@ func main() {
 	//	Start
 	//----------------------------------------
 	clientset := getClientSet()
-	informer := graph.GetInformer(clientset)
 	signalChan = make(chan os.Signal, 1)
-	stopInformers = make(chan struct{})
-
-	go informer.Run(stopInformers)
+	stop = make(chan struct{})
+	graphManager := graph.InitManager(clientset, stop)
+	graphManager.Start()
 
 	cleanupDone = make(chan struct{})
 	signal.Notify(signalChan, os.Interrupt)
@@ -59,7 +58,7 @@ func getClientSet() kubernetes.Interface {
 
 func cleanUp() {
 	<-signalChan
-	close(stopInformers)
+	close(stop)
 	log.Infoln("Received an interrupt, stopping everything")
 	//cleanup(services, c)
 	close(cleanupDone)
