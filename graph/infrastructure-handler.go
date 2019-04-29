@@ -41,9 +41,11 @@ type serviceInfo struct {
 func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastructure, error) {
 	//	the handler
 	inf := &InfrastructureHandler{
-		name:      namespace.Name,
-		labels:    namespace.Labels,
-		clientset: clientset,
+		name:        namespace.Name,
+		labels:      namespace.Labels,
+		clientset:   clientset,
+		deployments: map[string]*count{},
+		services:    map[string]*core_v1.ServiceSpec{},
 	}
 
 	log.Infoln("Starting graph handler for graph", namespace.Name)
