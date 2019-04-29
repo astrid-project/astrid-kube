@@ -107,7 +107,5 @@ func (depInformer *DeploymentInformer) parseObject(obj interface{}) *apps_v1.Dep
 	//------------------------------------
 	//	Add it
 	//------------------------------------
-
-	log.Infoln("Detected deployment with name:", deployment.Name)
 	return deployment
 }

@@ -1,9 +1,12 @@
 package graph
 
 import (
+	"sync"
+
 	informer "github.com/SunSince90/ASTRID-kube/informers"
 	astrid_types "github.com/SunSince90/ASTRID-kube/types"
 	log "github.com/sirupsen/logrus"
+	apps_v1 "k8s.io/api/apps/v1"
 	core_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,6 +25,13 @@ type InfrastructureHandler struct {
 	deploymentsInformer cache.SharedIndexInformer
 	servicesInformer    cache.SharedIndexInformer
 	stopWatching        chan struct{}
+	deployments         map[string]*count
+}
+
+type count struct {
+	needed  int
+	current int
+	sync.Mutex
 }
 
 func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastructure, error) {
@@ -34,24 +44,22 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 
 	log.Infoln("Starting graph handler for graph", namespace.Name)
 
+	//	First let's look at deployments
 	deploymentsInformer := informer.New(astrid_types.Deployments, namespace.Name)
 	deploymentsInformer.AddEventHandler(func(obj interface{}) {
-		log.Infoln("new deployment!")
+		d := obj.(*apps_v1.Deployment)
+		inf.handleNewDeployment(d)
 	}, nil, nil)
-
-	/*deploymentsInformer := inf.getDeploymentsInformer()
-	inf.deploymentsInformer = deploymentsInformer*/
-
-	//servicesInformer := inf.getServicesInformer()
-	//inf.servicesInformer = servicesInformer
-
-	//stopWatching := make(chan struct{})
-
-	//go deploymentsInformer.Run(stopWatching)
-	//go servicesInformer.Run(stopWatching)
-	//inf.stopWatching = stopWatching
+	deploymentsInformer.Start()
 
 	return inf, nil
+}
+
+func (handler *InfrastructureHandler) handleNewDeployment(deployment *apps_v1.Deployment) {
+	log.Infoln("Detected deployment with name:", deployment.Name)
+
+	//	Get replicas
+	log.Infof("labels: %+v\n", deployment.Labels)
 }
 
 func (handler *InfrastructureHandler) getServicesInformer() cache.SharedIndexInformer {
