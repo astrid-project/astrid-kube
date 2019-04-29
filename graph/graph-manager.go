@@ -19,10 +19,11 @@ type Manager interface {
 
 // GraphManager is the implementation of the graph manager
 type graphManager struct {
-	clientset kubernetes.Interface
-	informer  cache.SharedIndexInformer
-	stop      chan struct{}
-	lock      sync.Mutex
+	clientset       kubernetes.Interface
+	informer        cache.SharedIndexInformer
+	stop            chan struct{}
+	lock            sync.Mutex
+	infrastructures map[string]Infrastructure
 }
 
 // InitManager will initialize the graph manager
@@ -30,8 +31,9 @@ func InitManager(clientset kubernetes.Interface, stop chan struct{}) Manager {
 	log.Infoln("Starting graph manager")
 
 	manager := &graphManager{
-		clientset: clientset,
-		stop:      stop,
+		clientset:       clientset,
+		stop:            stop,
+		infrastructures: map[string]Infrastructure{},
 	}
 
 	informer := manager.getInformer()
@@ -75,6 +77,10 @@ func (manager *graphManager) getInformer() cache.SharedIndexInformer {
 }
 
 func (manager *graphManager) doPreliminaryChecks(obj interface{}) {
+	//------------------------------------
+	//	Try to get it
+	//------------------------------------
+
 	//	get the key
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
@@ -111,8 +117,16 @@ func (manager *graphManager) doPreliminaryChecks(obj interface{}) {
 		}
 	}
 
+	//------------------------------------
+	//	Add it
+	//------------------------------------
+
 	manager.lock.Lock()
 	defer manager.lock.Unlock()
 
-	//manager.infrastructures[ns.Name] = ...
+	inf, err := new(manager.clientset, obj)
+	if err != nil {
+		return
+	}
+	manager.infrastructures[ns.Name] = inf
 }
