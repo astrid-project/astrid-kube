@@ -26,8 +26,9 @@ type InfrastructureHandler struct {
 func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastructure, error) {
 	//	the handler
 	inf := &InfrastructureHandler{
-		name:   namespace.Name,
-		labels: namespace.Labels,
+		name:      namespace.Name,
+		labels:    namespace.Labels,
+		clientset: clientset,
 	}
 
 	deploymentsInformer := inf.getDeploymentsInformer()
