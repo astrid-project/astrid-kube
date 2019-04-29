@@ -118,7 +118,7 @@ func (manager *graphManager) doPreliminaryChecks(obj interface{}) {
 		}
 	}
 
-	if strings.HasPrefix(ns.Name, "kube-") {
+	if strings.HasPrefix(ns.Name, "kube-") || ns.Name == "default" {
 		return
 	}
 
