@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"strings"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -115,6 +116,10 @@ func (manager *graphManager) doPreliminaryChecks(obj interface{}) {
 			}
 			log.Infof("Recovered deleted object '%s' from tombstone", ns.Name)
 		}
+	}
+
+	if strings.HasPrefix(ns.Name, "kube-") {
+		return
 	}
 
 	//------------------------------------
