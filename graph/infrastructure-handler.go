@@ -1,8 +1,9 @@
 package graph
 
 import (
+	informer "github.com/SunSince90/ASTRID-kube/informers"
+	astrid_types "github.com/SunSince90/ASTRID-kube/types"
 	log "github.com/sirupsen/logrus"
-	apps_v1 "k8s.io/api/apps/v1"
 	core_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,98 +34,24 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 
 	log.Infoln("Starting graph handler for graph", namespace.Name)
 
-	deploymentsInformer := inf.getDeploymentsInformer()
-	inf.deploymentsInformer = deploymentsInformer
+	deploymentsInformer := informer.New(astrid_types.Deployments, namespace.Name)
+	deploymentsInformer.AddEventHandler(func(obj interface{}) {
+		log.Infoln("new deployment!")
+	}, nil, nil)
 
-	servicesInformer := inf.getServicesInformer()
-	inf.servicesInformer = servicesInformer
+	/*deploymentsInformer := inf.getDeploymentsInformer()
+	inf.deploymentsInformer = deploymentsInformer*/
 
-	stopWatching := make(chan struct{})
+	//servicesInformer := inf.getServicesInformer()
+	//inf.servicesInformer = servicesInformer
 
-	go deploymentsInformer.Run(stopWatching)
-	go servicesInformer.Run(stopWatching)
-	inf.stopWatching = stopWatching
+	//stopWatching := make(chan struct{})
+
+	//go deploymentsInformer.Run(stopWatching)
+	//go servicesInformer.Run(stopWatching)
+	//inf.stopWatching = stopWatching
 
 	return inf, nil
-}
-
-func (handler *InfrastructureHandler) getDeploymentsInformer() cache.SharedIndexInformer {
-	//	Get the informer
-	informer := cache.NewSharedIndexInformer(&cache.ListWatch{
-		ListFunc: func(options meta_v1.ListOptions) (runtime.Object, error) {
-			return handler.clientset.AppsV1().Deployments(handler.name).List(options)
-		},
-		WatchFunc: func(options meta_v1.ListOptions) (watch.Interface, error) {
-			return handler.clientset.AppsV1().Deployments(handler.name).Watch(options)
-		},
-	},
-		&apps_v1.Deployment{},
-		0, //Skip resync
-		cache.Indexers{},
-	)
-
-	//	Set the events
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			deployment := handler.getDeployment(obj)
-			if deployment != nil {
-				//	do something about it
-			}
-		},
-		UpdateFunc: func(old, new interface{}) {
-		},
-		DeleteFunc: func(obj interface{}) {
-		},
-	})
-	return informer
-}
-
-func (handler *InfrastructureHandler) getDeployment(obj interface{}) *apps_v1.Deployment {
-	//------------------------------------
-	//	Try to get it
-	//------------------------------------
-
-	//	get the key
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		log.Errorln("Error while trying to parse a graph:", err)
-		return nil
-	}
-
-	//	try to get the object
-	_d, _, err := handler.deploymentsInformer.GetIndexer().GetByKey(key)
-	if err != nil {
-		log.Errorf("An error occurred: cannot find cache element with key %s from store %v", key, err)
-		return nil
-	}
-
-	var deployment *apps_v1.Deployment
-
-	//	Get the namespace or try to recover it (this is a very improbable case, as we're doing this just for a new event).
-	deployment, ok := _d.(*apps_v1.Deployment)
-	if !ok {
-		deployment, ok = obj.(*apps_v1.Deployment)
-		if !ok {
-			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-			if !ok {
-				log.Errorln("error decoding object, invalid type")
-				return nil
-			}
-			deployment, ok = tombstone.Obj.(*apps_v1.Deployment)
-			if !ok {
-				log.Errorln("error decoding object tombstone, invalid type")
-				return nil
-			}
-			log.Infof("Recovered deleted object '%s' from tombstone", deployment.Name)
-		}
-	}
-
-	//------------------------------------
-	//	Add it
-	//------------------------------------
-
-	log.Infoln("Detected deployment with name:", deployment.Name)
-	return deployment
 }
 
 func (handler *InfrastructureHandler) getServicesInformer() cache.SharedIndexInformer {
