@@ -29,9 +29,7 @@ var (
 )
 
 func main() {
-	logger = log.New()
-	l := log.NewEntry(logger)
-	l.Infoln("Starting...")
+	logger.Infoln("Starting...")
 
 	//----------------------------------------
 	//	Start
@@ -66,8 +64,6 @@ func getClientSet() kubernetes.Interface {
 }
 
 func getInformer(clientset kubernetes.Interface) cache.SharedIndexInformer {
-	l := log.NewEntry(logger)
-
 	//	Get the informer
 	informer := cache.NewSharedIndexInformer(&cache.ListWatch{
 		ListFunc: func(options meta_v1.ListOptions) (runtime.Object, error) {
@@ -85,7 +81,7 @@ func getInformer(clientset kubernetes.Interface) cache.SharedIndexInformer {
 	//	Set the events
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			l.Infoln("new namespace!")
+			logger.Infoln("new namespace!")
 		},
 		UpdateFunc: func(old, new interface{}) {
 		},
@@ -98,10 +94,9 @@ func getInformer(clientset kubernetes.Interface) cache.SharedIndexInformer {
 }
 
 func cleanUp() {
-	l := log.NewEntry(logger)
 	<-signalChan
 	close(stopInformers)
-	l.Infoln("Received an interrupt, stopping everything")
+	logger.Infoln("Received an interrupt, stopping everything")
 	//cleanup(services, c)
 	close(cleanupDone)
 }
