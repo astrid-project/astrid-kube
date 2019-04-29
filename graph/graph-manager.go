@@ -124,7 +124,7 @@ func (manager *graphManager) doPreliminaryChecks(obj interface{}) {
 	manager.lock.Lock()
 	defer manager.lock.Unlock()
 
-	inf, err := new(manager.clientset, obj)
+	inf, err := new(manager.clientset, ns)
 	if err != nil {
 		return
 	}
