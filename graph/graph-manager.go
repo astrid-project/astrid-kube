@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"strings"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -57,7 +58,7 @@ func (manager *graphManager) getInformer() cache.SharedIndexInformer {
 			return manager.clientset.CoreV1().Namespaces().Watch(options)
 		},
 	},
-		&core_v1.Pod{},
+		&core_v1.Namespace{},
 		0, //Skip resync
 		cache.Indexers{},
 	)
@@ -117,6 +118,10 @@ func (manager *graphManager) doPreliminaryChecks(obj interface{}) {
 		}
 	}
 
+	if strings.HasPrefix(ns.Name, "kube-") || ns.Name == "default" {
+		return
+	}
+
 	//------------------------------------
 	//	Add it
 	//------------------------------------
@@ -124,7 +129,7 @@ func (manager *graphManager) doPreliminaryChecks(obj interface{}) {
 	manager.lock.Lock()
 	defer manager.lock.Unlock()
 
-	inf, err := new(manager.clientset, obj)
+	inf, err := new(manager.clientset, ns)
 	if err != nil {
 		return
 	}
