@@ -20,6 +20,7 @@ type InfrastructureHandler struct {
 	labels              map[string]string
 	deploymentsInformer cache.SharedIndexInformer
 	servicesInformer    cache.SharedIndexInformer
+	stopWatching        chan struct{}
 }
 
 func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastructure, error) {
@@ -34,6 +35,12 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 
 	servicesInformer := inf.getServicesInformer()
 	inf.servicesInformer = servicesInformer
+
+	stopWatching := make(chan struct{})
+
+	go deploymentsInformer.Run(stopWatching)
+	go servicesInformer.Run(stopWatching)
+	inf.stopWatching = stopWatching
 
 	return inf, nil
 }
