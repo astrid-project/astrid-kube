@@ -31,6 +31,8 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 		clientset: clientset,
 	}
 
+	log.Infoln("Starting graph handler for graph", namespace.Name)
+
 	deploymentsInformer := inf.getDeploymentsInformer()
 	inf.deploymentsInformer = deploymentsInformer
 
@@ -64,7 +66,10 @@ func (handler *InfrastructureHandler) getDeploymentsInformer() cache.SharedIndex
 	//	Set the events
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			log.Infoln("new deployment!")
+			deployment := handler.getDeployment(obj)
+			if deployment != nil {
+				//	do something about it
+			}
 		},
 		UpdateFunc: func(old, new interface{}) {
 		},
@@ -72,6 +77,54 @@ func (handler *InfrastructureHandler) getDeploymentsInformer() cache.SharedIndex
 		},
 	})
 	return informer
+}
+
+func (handler *InfrastructureHandler) getDeployment(obj interface{}) *apps_v1.Deployment {
+	//------------------------------------
+	//	Try to get it
+	//------------------------------------
+
+	//	get the key
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		log.Errorln("Error while trying to parse a graph:", err)
+		return nil
+	}
+
+	//	try to get the object
+	_d, _, err := handler.deploymentsInformer.GetIndexer().GetByKey(key)
+	if err != nil {
+		log.Errorf("An error occurred: cannot find cache element with key %s from store %v", key, err)
+		return nil
+	}
+
+	var deployment *apps_v1.Deployment
+
+	//	Get the namespace or try to recover it (this is a very improbable case, as we're doing this just for a new event).
+	deployment, ok := _d.(*apps_v1.Deployment)
+	if !ok {
+		deployment, ok = obj.(*apps_v1.Deployment)
+		if !ok {
+			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			if !ok {
+				log.Errorln("error decoding object, invalid type")
+				return nil
+			}
+			deployment, ok = tombstone.Obj.(*apps_v1.Deployment)
+			if !ok {
+				log.Errorln("error decoding object tombstone, invalid type")
+				return nil
+			}
+			log.Infof("Recovered deleted object '%s' from tombstone", deployment.Name)
+		}
+	}
+
+	//------------------------------------
+	//	Add it
+	//------------------------------------
+
+	log.Infoln("Detected deployment with name:", deployment.Name)
+	return deployment
 }
 
 func (handler *InfrastructureHandler) getServicesInformer() cache.SharedIndexInformer {
@@ -92,7 +145,10 @@ func (handler *InfrastructureHandler) getServicesInformer() cache.SharedIndexInf
 	//	Set the events
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			log.Infoln("new service!")
+			service := handler.getService(obj)
+			if service != nil {
+				//	do something about it
+			}
 		},
 		UpdateFunc: func(old, new interface{}) {
 		},
@@ -100,4 +156,52 @@ func (handler *InfrastructureHandler) getServicesInformer() cache.SharedIndexInf
 		},
 	})
 	return informer
+}
+
+func (handler *InfrastructureHandler) getService(obj interface{}) *core_v1.Service {
+	//------------------------------------
+	//	Try to get it
+	//------------------------------------
+
+	//	get the key
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		log.Errorln("Error while trying to parse a graph:", err)
+		return nil
+	}
+
+	//	try to get the object
+	_s, _, err := handler.deploymentsInformer.GetIndexer().GetByKey(key)
+	if err != nil {
+		log.Errorf("An error occurred: cannot find cache element with key %s from store %v", key, err)
+		return nil
+	}
+
+	var service *core_v1.Service
+
+	//	Get the namespace or try to recover it (this is a very improbable case, as we're doing this just for a new event).
+	service, ok := _s.(*core_v1.Service)
+	if !ok {
+		service, ok = obj.(*core_v1.Service)
+		if !ok {
+			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			if !ok {
+				log.Errorln("error decoding object, invalid type")
+				return nil
+			}
+			service, ok = tombstone.Obj.(*core_v1.Service)
+			if !ok {
+				log.Errorln("error decoding object tombstone, invalid type")
+				return nil
+			}
+			log.Infof("Recovered deleted object '%s' from tombstone", service.Name)
+		}
+	}
+
+	//------------------------------------
+	//	Add it
+	//------------------------------------
+
+	log.Infoln("Detected service with name:", service.Name)
+	return service
 }
