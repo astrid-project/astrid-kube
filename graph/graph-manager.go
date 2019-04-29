@@ -1,6 +1,8 @@
 package graph
 
 import (
+	"sync"
+
 	log "github.com/sirupsen/logrus"
 	core_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -10,23 +12,24 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// GraphManager manages all graphs (namespaces) inside the cluster
-type GraphManager interface {
+// Manager manages all graphs (namespaces) inside the cluster
+type Manager interface {
 	Start()
 }
 
-// Manager is the implementation of the graph manager
-type Manager struct {
+// GraphManager is the implementation of the graph manager
+type graphManager struct {
 	clientset kubernetes.Interface
 	informer  cache.SharedIndexInformer
 	stop      chan struct{}
+	lock      sync.Mutex
 }
 
 // InitManager will initialize the graph manager
-func InitManager(clientset kubernetes.Interface, stop chan struct{}) GraphManager {
+func InitManager(clientset kubernetes.Interface, stop chan struct{}) Manager {
 	log.Infoln("Starting graph manager")
 
-	manager := &Manager{
+	manager := &graphManager{
 		clientset: clientset,
 		stop:      stop,
 	}
@@ -38,11 +41,11 @@ func InitManager(clientset kubernetes.Interface, stop chan struct{}) GraphManage
 }
 
 // Start starts the informer inside the graph manager.
-func (manager *Manager) Start() {
+func (manager *graphManager) Start() {
 	go manager.informer.Run(manager.stop)
 }
 
-func (manager *Manager) getInformer() cache.SharedIndexInformer {
+func (manager *graphManager) getInformer() cache.SharedIndexInformer {
 	//	Get the informer
 	informer := cache.NewSharedIndexInformer(&cache.ListWatch{
 		ListFunc: func(options meta_v1.ListOptions) (runtime.Object, error) {
@@ -60,7 +63,7 @@ func (manager *Manager) getInformer() cache.SharedIndexInformer {
 	//	Set the events
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			log.Infoln("New namespace!")
+			manager.doPreliminaryChecks(obj)
 		},
 		UpdateFunc: func(old, new interface{}) {
 		},
@@ -69,4 +72,47 @@ func (manager *Manager) getInformer() cache.SharedIndexInformer {
 	})
 
 	return informer
+}
+
+func (manager *graphManager) doPreliminaryChecks(obj interface{}) {
+	//	get the key
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		log.Errorln("Error while trying to parse a graph:", err)
+		return
+	}
+
+	//	try to get the object
+	_ns, _, err := manager.informer.GetIndexer().GetByKey(key)
+	//	Errors?
+	if err != nil {
+		log.Errorf("An error occurred: cannot find cache element with key %s from store %v", key, err)
+		return
+	}
+
+	var ns *core_v1.Namespace
+
+	//	Get the namespace or try to recover it (this is a very improbable case, as we're doing this just for a new event).
+	ns, ok := _ns.(*core_v1.Namespace)
+	if !ok {
+		ns, ok = obj.(*core_v1.Namespace)
+		if !ok {
+			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			if !ok {
+				log.Errorln("error decoding object, invalid type")
+				return
+			}
+			ns, ok = tombstone.Obj.(*core_v1.Namespace)
+			if !ok {
+				log.Errorln("error decoding object tombstone, invalid type")
+				return
+			}
+			log.Infof("Recovered deleted object '%s' from tombstone", ns.Name)
+		}
+	}
+
+	manager.lock.Lock()
+	defer manager.lock.Unlock()
+
+	//manager.infrastructures[ns.Name] = ...
 }
