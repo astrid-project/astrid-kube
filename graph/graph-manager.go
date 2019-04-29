@@ -57,7 +57,7 @@ func (manager *graphManager) getInformer() cache.SharedIndexInformer {
 			return manager.clientset.CoreV1().Namespaces().Watch(options)
 		},
 	},
-		&core_v1.Pod{},
+		&core_v1.Namespace{},
 		0, //Skip resync
 		cache.Indexers{},
 	)
