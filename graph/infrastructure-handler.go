@@ -92,7 +92,7 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 
 	//	Start listening for pods
 	podInformer := informer.New(astrid_types.Pods, namespace.Name)
-	servInformer.AddEventHandler(nil, func(old, obj interface{}) {
+	podInformer.AddEventHandler(nil, func(old, obj interface{}) {
 		p := obj.(*core_v1.Pod)
 		inf.handlePod(p)
 	}, nil)
