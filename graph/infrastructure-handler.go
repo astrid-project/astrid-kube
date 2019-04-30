@@ -2,6 +2,7 @@ package graph
 
 import (
 	"errors"
+	"strings"
 	"sync"
 
 	informer "github.com/SunSince90/ASTRID-kube/informers"
@@ -62,7 +63,10 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 
 	//	Get all deployments needed
 	for name := range namespace.Annotations {
-		inf.resources[name] = true
+		if strings.HasPrefix(name, "astrid.io/") {
+			actualName := strings.Split(name, "/")[1]
+			inf.resources[actualName] = true
+		}
 	}
 
 	//	First let's look at deployments
