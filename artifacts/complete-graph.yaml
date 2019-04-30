@@ -5,8 +5,8 @@ metadata:
   labels:
     name: graph
   annotations:
-    nginx: deployment
-    apache: deployment
+    astrid.io/nginx: deployment
+    astrid.io/apache: deployment
 ---
 apiVersion: v1
 kind: Service
