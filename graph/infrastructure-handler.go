@@ -48,6 +48,8 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 	inf := &InfrastructureHandler{
 		name:        namespace.Name,
 		labels:      namespace.Labels,
+		depBarrier:  make(chan struct{}),
+		servBarrier: make(chan struct{}),
 		clientset:   clientset,
 		deployments: map[string]*count{},
 		services:    map[string]*core_v1.ServiceSpec{},
