@@ -143,6 +143,7 @@ func (handler *InfrastructureHandler) handleNewService(service *core_v1.Service)
 			return
 		}
 	}
+	close(handler.servBarrier)
 }
 
 func (handler *InfrastructureHandler) listen() {
