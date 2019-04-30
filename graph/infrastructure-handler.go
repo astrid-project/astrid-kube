@@ -156,8 +156,9 @@ func (handler *InfrastructureHandler) listen() {
 	handler.log.Infoln("Found all deployments needed for this graph")
 
 	handler.log.Infoln("Going to start listening for pod life cycle events.")
+	handler.podInformer.Start()
 }
 
 func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
-
+	handler.log.Infoln("detected pod", pod.Name, "on phase", pod.Status.Phase)
 }
