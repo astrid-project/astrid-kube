@@ -1,0 +1,191 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: graph
+  labels:
+    name: graph
+  annotations:
+    nginx: deployment
+    apache: deployment
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: graph
+  labels:
+    app: nginx
+    ambassador: polycubed
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 32333
+    name: nginx-app-port
+  - port: 9000
+    targetPort: 9000
+    nodePort: 32334
+    name: nginx-ambassador-port
+  clusterIP: 10.96.24.24
+  selector:
+    app: nginx
+    ambassador: polycubed
+---
+apiVersion: apps/v1 
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: graph
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+      ambassador: polycubed
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx
+        ambassador: polycubed
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.7.9
+        ports:
+        - containerPort: 80
+      - name: polycubed
+        image: k8sfirewall/firewall:astrid
+        imagePullPolicy: Always
+        command: ["polycubed", "--loglevel=DEBUG", "--addr=0.0.0.0", "--logfile=/host/var/log/pcn_k8s"]
+        volumeMounts:
+        - name: lib-modules
+          mountPath: /lib/modules
+        - name: usr-src
+          mountPath: /usr/src
+        - name: cni-path
+          mountPath: /host/opt/cni/bin
+        - name: etc-cni-netd
+          mountPath: /host/etc/cni/net.d
+        - name: var-log
+          mountPath: /host/var/log
+        securityContext:
+          privileged: true
+        ports:
+          - name: polycubed
+            containerPort: 9000
+        terminationMessagePolicy: FallbackToLogsOnError
+      volumes:
+      - name: lib-modules
+        hostPath:
+          path: /lib/modules
+      - name: usr-src
+        hostPath:
+          path: /usr/src
+      - name: cni-path
+        hostPath:
+          path: /opt/cni/bin
+      - name: etc-cni-netd
+        hostPath:
+          path: /etc/cni/net.d
+      - name: var-log
+        hostPath:
+          path: /var/log
+      - name: netns
+        hostPath:
+          path: /var/run/netns
+      - name: proc
+        hostPath:
+          path: /proc/
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apache
+  namespace: graph
+  labels:
+    app: apache
+    ambassador: polycubed
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 32335
+    name: apache-app-port
+  - port: 9000
+    targetPort: 9000
+    nodePort: 32336
+    name: apache-ambassador-port
+  clusterIP: 10.96.24.25
+  selector:
+    app: apache
+    ambassador: polycubed
+---
+apiVersion: apps/v1 
+kind: Deployment
+metadata:
+  name: apache
+  namespace: graph
+spec:
+  selector:
+    matchLabels:
+      app: apache
+      ambassador: polycubed
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: apache
+        ambassador: polycubed
+    spec:
+    #serviceAccountName: polycube
+      containers:
+      - name: apache
+        image: httpd
+        ports:
+        - containerPort: 80
+      - name: polycubed
+        image: k8sfirewall/firewall:astrid
+        imagePullPolicy: Always
+        command: ["polycubed", "--loglevel=DEBUG", "--addr=0.0.0.0", "--logfile=/host/var/log/pcn_k8s"]
+        volumeMounts:
+        - name: lib-modules
+          mountPath: /lib/modules
+        - name: usr-src
+          mountPath: /usr/src
+        - name: cni-path
+          mountPath: /host/opt/cni/bin
+        - name: etc-cni-netd
+          mountPath: /host/etc/cni/net.d
+        - name: var-log
+          mountPath: /host/var/log
+        securityContext:
+          privileged: true
+        ports:
+          - name: polycubed
+            containerPort: 9000
+        terminationMessagePolicy: FallbackToLogsOnError
+        #restartPolicy: Never
+      volumes:
+      - name: lib-modules
+        hostPath:
+          path: /lib/modules
+      - name: usr-src
+        hostPath:
+          path: /usr/src
+      - name: cni-path
+        hostPath:
+          path: /opt/cni/bin
+      - name: etc-cni-netd
+        hostPath:
+          path: /etc/cni/net.d
+      - name: var-log
+        hostPath:
+          path: /var/log
+      - name: netns
+        hostPath:
+          path: /var/run/netns
+      - name: proc
+        hostPath:
+          path: /proc/
