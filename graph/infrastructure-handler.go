@@ -92,7 +92,10 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 
 	//	Start listening for pods
 	podInformer := informer.New(astrid_types.Pods, namespace.Name)
-	podInformer.AddEventHandler(nil, func(old, obj interface{}) {
+	podInformer.AddEventHandler(func(obj interface{}) {
+		p := obj.(*core_v1.Pod)
+		inf.handlePod(p)
+	}, func(old, obj interface{}) {
 		p := obj.(*core_v1.Pod)
 		inf.handlePod(p)
 	}, nil)
@@ -160,5 +163,11 @@ func (handler *InfrastructureHandler) listen() {
 }
 
 func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
-	handler.log.Infoln("detected pod", pod.Name, "on phase", pod.Status.Phase)
+	handler.lock.Lock()
+	defer handler.lock.Unlock()
+
+	if pod.Status.Phase != core_v1.PodRunning {
+		handler.log.Infoln("Detected pod", pod.Name, "on phase", pod.Status.Phase, ". Will ignore it.")
+		return
+	}
 }
