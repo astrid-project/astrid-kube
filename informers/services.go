@@ -56,7 +56,7 @@ func (servInformer *ServicesInformer) AddEventHandler(add func(interface{}), upd
 	servInformer.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			service := servInformer.parseObject(obj)
-			if service != nil {
+			if service != nil && add != nil {
 				add(service)
 			}
 		},

@@ -11,7 +11,6 @@ import (
 	apps_v1 "k8s.io/api/apps/v1"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 )
 
 type Infrastructure interface {
@@ -22,9 +21,11 @@ type InfrastructureHandler struct {
 	name                string
 	log                 *log.Entry
 	labels              map[string]string
-	deploymentsInformer cache.SharedIndexInformer
-	servicesInformer    cache.SharedIndexInformer
-	stopWatching        chan struct{}
+	deploymentsInformer informer.Informer
+	servicesInformer    informer.Informer
+	podInformer         informer.Informer
+	depBarrier          chan struct{}
+	servBarrier         chan struct{}
 	resources           map[string]bool
 	deployments         map[string]*count
 	services            map[string]*core_v1.ServiceSpec
@@ -34,7 +35,6 @@ type InfrastructureHandler struct {
 type count struct {
 	needed  int32
 	current int32
-	sync.Mutex
 }
 
 type serviceInfo struct {
@@ -47,6 +47,8 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 	inf := &InfrastructureHandler{
 		name:        namespace.Name,
 		labels:      namespace.Labels,
+		depBarrier:  make(chan struct{}),
+		servBarrier: make(chan struct{}),
 		clientset:   clientset,
 		deployments: map[string]*count{},
 		services:    map[string]*core_v1.ServiceSpec{},
@@ -75,6 +77,7 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 		d := obj.(*apps_v1.Deployment)
 		inf.handleNewDeployment(d)
 	}, nil, nil)
+	inf.deploymentsInformer = deploymentsInformer
 	deploymentsInformer.Start()
 
 	//	and then at services
@@ -83,7 +86,10 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 		s := obj.(*core_v1.Service)
 		inf.handleNewService(s)
 	}, nil, nil)
+	inf.servicesInformer = servInformer
 	servInformer.Start()
+
+	go inf.listen()
 
 	return inf, nil
 }
@@ -109,9 +115,7 @@ func (handler *InfrastructureHandler) handleNewDeployment(deployment *apps_v1.De
 			return
 		}
 	}
-
-	//	ok we can start listening for pods
-	handler.log.Infoln("Found all deployments needed for this graph")
+	close(handler.depBarrier)
 }
 
 func (handler *InfrastructureHandler) handleNewService(service *core_v1.Service) {
@@ -131,7 +135,70 @@ func (handler *InfrastructureHandler) handleNewService(service *core_v1.Service)
 			return
 		}
 	}
+	close(handler.servBarrier)
+}
 
-	//	ok we can start listening for pods
+func (handler *InfrastructureHandler) listen() {
+	//	Wait for services discovery
+	<-handler.servBarrier
 	handler.log.Infoln("Found all services needed for this graph")
+
+	//	Wait for deployments discovery
+	<-handler.depBarrier
+	handler.log.Infoln("Found all deployments needed for this graph")
+
+	handler.log.Infoln("Going to start listening for pod life cycle events.")
+	//	Start listening for pods
+	podInformer := informer.New(astrid_types.Pods, handler.name)
+	podInformer.AddEventHandler(func(obj interface{}) {
+		p := obj.(*core_v1.Pod)
+		handler.handlePod(p)
+	}, func(old, obj interface{}) {
+		p := obj.(*core_v1.Pod)
+		handler.handlePod(p)
+	}, nil)
+	handler.podInformer = podInformer
+	handler.podInformer.Start()
+}
+
+func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
+	handler.lock.Lock()
+	defer handler.lock.Unlock()
+
+	if pod.Status.Phase != core_v1.PodRunning {
+		handler.log.Infoln("Detected pod", pod.Name, "on phase", pod.Status.Phase, ". Will ignore it.")
+		return
+	}
+
+	//	This is improbable, but just in case
+	if len(pod.Labels) < 1 {
+		return
+	}
+
+	depName, exists := pod.Labels["astrid.io/deployment"]
+	if !exists {
+		handler.log.Errorln(pod.Name, "does not have a deployment label")
+		return
+	}
+
+	dep, exists := handler.deployments[depName]
+	if !exists {
+		handler.log.Errorln(depName, "does not exist")
+		return
+	}
+
+	dep.current++
+	if dep.current == dep.needed {
+		handler.canBuildInfo()
+	}
+}
+
+func (handler *InfrastructureHandler) canBuildInfo() {
+	for _, dep := range handler.deployments {
+		if dep.current != dep.needed {
+			return
+		}
+	}
+
+	handler.log.Infoln("The graph is fully running. Building Infrastructure Info...")
 }

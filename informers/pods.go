@@ -57,11 +57,15 @@ func (podInformer *PodsInformer) AddEventHandler(add func(interface{}), update f
 	podInformer.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			pod := podInformer.parseObject(obj)
-			if pod != nil {
+			if pod != nil && add != nil {
 				add(pod)
 			}
 		},
-		UpdateFunc: func(old, new interface{}) {
+		UpdateFunc: func(old, obj interface{}) {
+			pod := podInformer.parseObject(obj)
+			if pod != nil && update != nil {
+				update(old, obj)
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
 		},

@@ -11,6 +11,8 @@ func New(what astrid_types.InformerType, namespace string) Informer {
 		return newDeploymentsInformer(namespace)
 	case astrid_types.Services:
 		return newServicesInformer(namespace)
+	case astrid_types.Pods:
+		return newPodsInformer(namespace)
 	}
 
 	return nil
