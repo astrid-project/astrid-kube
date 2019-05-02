@@ -90,16 +90,6 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 	inf.servicesInformer = servInformer
 	servInformer.Start()
 
-	//	Start listening for pods
-	podInformer := informer.New(astrid_types.Pods, namespace.Name)
-	podInformer.AddEventHandler(func(obj interface{}) {
-		p := obj.(*core_v1.Pod)
-		inf.handlePod(p)
-	}, func(old, obj interface{}) {
-		p := obj.(*core_v1.Pod)
-		inf.handlePod(p)
-	}, nil)
-	inf.podInformer = podInformer
 	go inf.listen()
 
 	return inf, nil
@@ -159,6 +149,16 @@ func (handler *InfrastructureHandler) listen() {
 	handler.log.Infoln("Found all deployments needed for this graph")
 
 	handler.log.Infoln("Going to start listening for pod life cycle events.")
+	//	Start listening for pods
+	podInformer := informer.New(astrid_types.Pods, handler.name)
+	podInformer.AddEventHandler(func(obj interface{}) {
+		p := obj.(*core_v1.Pod)
+		handler.handlePod(p)
+	}, func(old, obj interface{}) {
+		p := obj.(*core_v1.Pod)
+		handler.handlePod(p)
+	}, nil)
+	handler.podInformer = podInformer
 	handler.podInformer.Start()
 }
 
