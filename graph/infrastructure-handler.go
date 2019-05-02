@@ -35,7 +35,6 @@ type InfrastructureHandler struct {
 type count struct {
 	needed  int32
 	current int32
-	sync.Mutex
 }
 
 type serviceInfo struct {
@@ -170,4 +169,36 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 		handler.log.Infoln("Detected pod", pod.Name, "on phase", pod.Status.Phase, ". Will ignore it.")
 		return
 	}
+
+	//	This is improbable, but just in case
+	if len(pod.Labels) < 1 {
+		return
+	}
+
+	depName, exists := pod.Labels["astrid.io/deployment"]
+	if !exists {
+		handler.log.Errorln(pod.Name, "does not have a deployment label")
+		return
+	}
+
+	dep, exists := handler.deployments[depName]
+	if !exists {
+		handler.log.Errorln(depName, "does not exist")
+		return
+	}
+
+	dep.current++
+	if dep.current == dep.needed {
+		handler.canBuildInfo()
+	}
+}
+
+func (handler *InfrastructureHandler) canBuildInfo() {
+	for _, dep := range handler.deployments {
+		if dep.current != dep.needed {
+			return
+		}
+	}
+
+	handler.log.Infoln("The graph is fully running. Building Infrastructure Info...")
 }
