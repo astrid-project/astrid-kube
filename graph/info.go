@@ -10,12 +10,14 @@ import (
 
 type InfrastructureInfo interface {
 	PushService(string, *core_v1.ServiceSpec)
+	PushInstance(string, string, string)
 }
 
 type InfrastructureInfoBuilder struct {
-	lock             sync.Mutex
-	info             types.InfrastructureInfo
-	deployedServices map[string]bool
+	lock              sync.Mutex
+	info              types.InfrastructureInfo
+	deployedServices  map[string]int
+	deployedInstances map[string]int
 }
 
 func newBuilder(name string) InfrastructureInfo {
@@ -29,8 +31,9 @@ func newBuilder(name string) InfrastructureInfo {
 	}
 
 	return &InfrastructureInfoBuilder{
-		info:             info,
-		deployedServices: map[string]bool{},
+		info:              info,
+		deployedServices:  map[string]int{},
+		deployedInstances: map[string]int{},
 	}
 }
 
@@ -42,7 +45,7 @@ func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.Servi
 		return
 	}
 
-	i.deployedServices[name] = true
+	i.deployedServices[name] = len(i.info.Spec.Services)
 	service := types.InfrastructureInfoService{
 		Name: name,
 	}
@@ -66,6 +69,25 @@ func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.Servi
 			})
 		}
 	}
+}
+
+func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
+	i.lock.Lock()
+	defer i.lock.Unlock()
+
+	serviceOffset, exists := i.deployedServices[service]
+	if !exists {
+		return
+	}
+	if _, exists := i.deployedInstances[uid]; exists {
+		return
+	}
+
+	i.deployedInstances[uid] = len(i.info.Spec.Services[serviceOffset].Instances)
+	i.info.Spec.Services[serviceOffset].Instances = append(i.info.Spec.Services[serviceOffset].Instances, types.InfrastructureInfoServiceInstance{
+		IP:  ip,
+		UID: uid,
+	})
 }
 
 func (i *InfrastructureInfoBuilder) Build() {
