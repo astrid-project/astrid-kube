@@ -32,7 +32,7 @@ type InfrastructureInfoService struct {
 type InfrastructureInfoServicePort struct {
 	Port     int32                      `yaml:"port"`
 	Protocol InfrastructureInfoProtocol `yaml:"protocol"`
-	Exposed  int32                      `yaml:"Exposed"`
+	Exposed  int32                      `yaml:"exposed"`
 }
 
 type InfrastructureInfoProtocol string
