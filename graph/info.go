@@ -106,10 +106,11 @@ func (i *InfrastructureInfoBuilder) Build() {
 	}
 
 	for _, node := range nodes.Items {
-		for _, address := range node.Status.Addresses {
-			i.info.Spec.Nodes = append(i.info.Spec.Nodes, types.InfrastructureInfoNode{
-				IP: address.Address,
-			})
-		}
+
+		i.info.Spec.Nodes = append(i.info.Spec.Nodes, types.InfrastructureInfoNode{
+			//	TODO: check this out
+			IP: node.Status.Addresses[0].Address,
+		})
+
 	}
 }
