@@ -30,6 +30,7 @@ type InfrastructureHandler struct {
 	deployments         map[string]*count
 	services            map[string]*core_v1.ServiceSpec
 	lock                sync.Mutex
+	infoBuilder         InfrastructureInfo
 }
 
 type count struct {
@@ -54,6 +55,7 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 		services:    map[string]*core_v1.ServiceSpec{},
 		resources:   map[string]bool{},
 		log:         log.New().WithFields(log.Fields{"GRAPH": namespace.Name}),
+		infoBuilder: newBuilder(namespace.Name),
 	}
 
 	inf.log.Infoln("Starting graph handler for graph", namespace.Name)
@@ -125,6 +127,7 @@ func (handler *InfrastructureHandler) handleNewService(service *core_v1.Service)
 	handler.log.Infoln("Detected service with name:", service.Name)
 
 	handler.services[service.Name] = &service.Spec
+	handler.infoBuilder.PushService(service.Name, &service.Spec)
 
 	//	Do we have all services?
 	if len(handler.services) != len(handler.resources) {
@@ -186,6 +189,8 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 		handler.log.Errorln(depName, "does not exist")
 		return
 	}
+
+	handler.infoBuilder.PushInstance(pod.Labels["astrid.io/service"], pod.Status.PodIP, string(pod.UID))
 
 	dep.current++
 	if dep.current == dep.needed {
