@@ -4,6 +4,11 @@ import (
 	"sync"
 	"time"
 
+	"encoding/json"
+	"encoding/xml"
+
+	log "github.com/sirupsen/logrus"
+	yaml "gopkg.in/yaml.v2"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	types "github.com/SunSince90/ASTRID-kube/types"
@@ -14,7 +19,7 @@ import (
 type InfrastructureInfo interface {
 	PushService(string, *core_v1.ServiceSpec)
 	PushInstance(string, string, string)
-	Build()
+	Build(types.EncodingType)
 }
 
 type InfrastructureInfoBuilder struct {
@@ -58,7 +63,11 @@ func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.Servi
 
 	for _, ports := range spec.Ports {
 		if ports.Name == name+"-ambassador-port" {
-			service.AmbassadorPort = ports.NodePort
+			service.AmbassadorPort = types.InfrastructureInfoServicePort{
+				Port:     9000,
+				Exposed:  ports.NodePort,
+				Protocol: types.TCP,
+			}
 		} else {
 			var protocol types.InfrastructureInfoProtocol
 			switch ports.Protocol {
@@ -68,9 +77,9 @@ func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.Servi
 				protocol = types.UDP
 			}
 
-			service.ExposedPorts = append(service.ExposedPorts, ports.NodePort)
-			service.InternalPorts = append(service.InternalPorts, types.InfrastructureInfoServiceInternalPort{
+			service.Ports = append(service.Ports, types.InfrastructureInfoServicePort{
 				Port:     ports.TargetPort.IntVal,
+				Exposed:  ports.NodePort,
 				Protocol: protocol,
 			})
 		}
@@ -98,19 +107,55 @@ func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
 	})
 }
 
-func (i *InfrastructureInfoBuilder) Build() {
+func (i *InfrastructureInfoBuilder) Build(to types.EncodingType) {
 	nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
 	if err != nil {
-		//	TODO: create error message
+		log.Errorln("Cannot get nodes:", err)
 		return
 	}
 
-	for _, node := range nodes.Items {
+	if len(i.info.Spec.Nodes) < 1 {
+		for _, node := range nodes.Items {
+			i.info.Spec.Nodes = append(i.info.Spec.Nodes, types.InfrastructureInfoNode{
+				//	TODO: check this out
+				IP: node.Status.Addresses[0].Address,
+			})
+		}
+	}
 
-		i.info.Spec.Nodes = append(i.info.Spec.Nodes, types.InfrastructureInfoNode{
-			//	TODO: check this out
-			IP: node.Status.Addresses[0].Address,
-		})
+	yaml := func() {
+		data, err := yaml.Marshal(&i.info)
+		if err != nil {
+			log.Errorln("Cannot marshal to yaml:", err)
+			return
+		}
+		log.Printf("--- t dump:\n%s\n\n", string(data))
+	}
 
+	xml := func() {
+		data, err := xml.MarshalIndent(&i.info, "", "   ")
+		if err != nil {
+			log.Errorln("Cannot marshal to xml:", err)
+			return
+		}
+		log.Printf("--- t dump:\n%s\n\n", string(data))
+	}
+
+	json := func() {
+		data, err := json.MarshalIndent(&i.info, "", "   ")
+		if err != nil {
+			log.Errorln("Cannot marshal to json:", err)
+			return
+		}
+		log.Printf("--- t dump:\n%s\n\n", string(data))
+	}
+
+	switch to {
+	case types.XML:
+		xml()
+	case types.YAML:
+		yaml()
+	case types.JSON:
+		json()
 	}
 }
