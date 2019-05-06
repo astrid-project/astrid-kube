@@ -190,6 +190,8 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 		return
 	}
 
+	handler.infoBuilder.PushInstance(pod.Labels["astrid.io/service"], pod.Status.PodIP, string(pod.UID))
+
 	dep.current++
 	if dep.current == dep.needed {
 		handler.canBuildInfo()
