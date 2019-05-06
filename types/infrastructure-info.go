@@ -3,36 +3,36 @@ package types
 import "time"
 
 type InfrastructureInfo struct {
-	Kind     string
-	Metadata InfrastructureInfoMetadata
-	Spec     InfrastructureInfoSpec
+	Kind     string                     `yaml:"kind"`
+	Metadata InfrastructureInfoMetadata `yaml:"metadata"`
+	Spec     InfrastructureInfoSpec     `yaml:"spec"`
 }
 
 type InfrastructureInfoMetadata struct {
-	Name       string
-	LastUpdate time.Time
+	Name       string    `yaml:"name"`
+	LastUpdate time.Time `yaml:"lastUpdate"`
 }
 
 type InfrastructureInfoSpec struct {
-	Nodes    []InfrastructureInfoNode
-	Services []InfrastructureInfoService
+	Nodes    []InfrastructureInfoNode    `yaml:"nodes"`
+	Services []InfrastructureInfoService `yaml:"services"`
 }
 
 type InfrastructureInfoNode struct {
-	IP string
+	IP string `yaml:"ip"`
 }
 
 type InfrastructureInfoService struct {
-	Name           string
-	ExposedPorts   []int32
-	AmbassadorPort int32
-	InternalPorts  []InfrastructureInfoServiceInternalPort
-	Instances      []InfrastructureInfoServiceInstance
+	Name           string                                  `yaml:"name"`
+	ExposedPorts   []int32                                 `yaml:"exposedPorts"`
+	AmbassadorPort int32                                   `yaml:"ambassadorPort"`
+	InternalPorts  []InfrastructureInfoServiceInternalPort `yaml:"internalPorts"`
+	Instances      []InfrastructureInfoServiceInstance     `yaml:"instances"`
 }
 
 type InfrastructureInfoServiceInternalPort struct {
-	Port     int32
-	Protocol InfrastructureInfoProtocol
+	Port     int32                      `yaml:"port"`
+	Protocol InfrastructureInfoProtocol `yaml:"protocol"`
 }
 
 type InfrastructureInfoProtocol string
@@ -45,6 +45,6 @@ const (
 )
 
 type InfrastructureInfoServiceInstance struct {
-	IP  string
-	UID string
+	IP  string `yaml:"ip"`
+	UID string `yaml:"uid"`
 }

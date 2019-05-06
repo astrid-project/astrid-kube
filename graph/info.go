@@ -4,6 +4,9 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+	yaml "gopkg.in/yaml.v2"
+
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	types "github.com/SunSince90/ASTRID-kube/types"
@@ -101,16 +104,23 @@ func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
 func (i *InfrastructureInfoBuilder) Build() {
 	nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
 	if err != nil {
-		//	TODO: create error message
+		log.Errorln("Cannot get nodes:", err)
 		return
 	}
 
-	for _, node := range nodes.Items {
-
-		i.info.Spec.Nodes = append(i.info.Spec.Nodes, types.InfrastructureInfoNode{
-			//	TODO: check this out
-			IP: node.Status.Addresses[0].Address,
-		})
-
+	if len(i.info.Spec.Nodes) < 1 {
+		for _, node := range nodes.Items {
+			i.info.Spec.Nodes = append(i.info.Spec.Nodes, types.InfrastructureInfoNode{
+				//	TODO: check this out
+				IP: node.Status.Addresses[0].Address,
+			})
+		}
 	}
+
+	data, err := yaml.Marshal(&i.info)
+	if err != nil {
+		log.Errorln("Cannot marshal yaml!", err)
+		return
+	}
+	log.Printf("--- t dump:\n%s\n\n", string(data))
 }
