@@ -47,14 +47,15 @@ func InitManager(clientset kubernetes.Interface, stop chan struct{}) Manager {
 	informer := manager.getInformer()
 	manager.informer = informer
 
-	manager.nodeInformer.AddEventHandler(func(obj interface{}) {
+	//	Disabled this for now
+	/*manager.nodeInformer.AddEventHandler(func(obj interface{}) {
 		manager.lock.Lock()
 		defer manager.lock.Unlock()
 
 		n := obj.(*core_v1.Node)
 		manager.nodesList[n.Name] = true
 	}, nil, nil)
-	manager.nodeInformer.Start()
+	manager.nodeInformer.Start()*/
 
 	return manager
 }

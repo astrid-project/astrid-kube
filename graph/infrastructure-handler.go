@@ -55,7 +55,7 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 		services:    map[string]*core_v1.ServiceSpec{},
 		resources:   map[string]bool{},
 		log:         log.New().WithFields(log.Fields{"GRAPH": namespace.Name}),
-		infoBuilder: newBuilder(namespace.Name),
+		infoBuilder: newBuilder(clientset, namespace.Name),
 	}
 
 	inf.log.Infoln("Starting graph handler for graph", namespace.Name)
@@ -169,7 +169,6 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 	defer handler.lock.Unlock()
 
 	if pod.Status.Phase != core_v1.PodRunning {
-		handler.log.Infoln("Detected pod", pod.Name, "on phase", pod.Status.Phase, ". Will ignore it.")
 		return
 	}
 
@@ -190,6 +189,7 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 		return
 	}
 
+	handler.log.Infoln("Detected running pod:", pod.Name)
 	handler.infoBuilder.PushInstance(pod.Labels["astrid.io/service"], pod.Status.PodIP, string(pod.UID))
 
 	dep.current++

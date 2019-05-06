@@ -4,8 +4,11 @@ import (
 	"sync"
 	"time"
 
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	types "github.com/SunSince90/ASTRID-kube/types"
 	core_v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 type InfrastructureInfo interface {
@@ -19,9 +22,10 @@ type InfrastructureInfoBuilder struct {
 	info              types.InfrastructureInfo
 	deployedServices  map[string]int
 	deployedInstances map[string]int
+	clientset         kubernetes.Interface
 }
 
-func newBuilder(name string) InfrastructureInfo {
+func newBuilder(clientset kubernetes.Interface, name string) InfrastructureInfo {
 
 	info := types.InfrastructureInfo{
 		Kind: types.KIND,
@@ -33,6 +37,7 @@ func newBuilder(name string) InfrastructureInfo {
 
 	return &InfrastructureInfoBuilder{
 		info:              info,
+		clientset:         clientset,
 		deployedServices:  map[string]int{},
 		deployedInstances: map[string]int{},
 	}
@@ -94,4 +99,18 @@ func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
 }
 
 func (i *InfrastructureInfoBuilder) Build() {
+	nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
+	if err != nil {
+		//	TODO: create error message
+		return
+	}
+
+	for _, node := range nodes.Items {
+
+		i.info.Spec.Nodes = append(i.info.Spec.Nodes, types.InfrastructureInfoNode{
+			//	TODO: check this out
+			IP: node.Status.Addresses[0].Address,
+		})
+
+	}
 }
