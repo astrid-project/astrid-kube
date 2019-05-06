@@ -11,6 +11,7 @@ import (
 type InfrastructureInfo interface {
 	PushService(string, *core_v1.ServiceSpec)
 	PushInstance(string, string, string)
+	Build()
 }
 
 type InfrastructureInfoBuilder struct {
@@ -69,6 +70,8 @@ func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.Servi
 			})
 		}
 	}
+
+	i.info.Spec.Services = append(i.info.Spec.Services, service)
 }
 
 func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
