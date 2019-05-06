@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"encoding/json"
 	"encoding/xml"
 
 	log "github.com/sirupsen/logrus"
@@ -125,7 +126,7 @@ func (i *InfrastructureInfoBuilder) Build(to types.EncodingType) {
 	yaml := func() {
 		data, err := yaml.Marshal(&i.info)
 		if err != nil {
-			log.Errorln("Cannot marshal yaml!", err)
+			log.Errorln("Cannot marshal to yaml:", err)
 			return
 		}
 		log.Printf("--- t dump:\n%s\n\n", string(data))
@@ -134,7 +135,16 @@ func (i *InfrastructureInfoBuilder) Build(to types.EncodingType) {
 	xml := func() {
 		data, err := xml.MarshalIndent(&i.info, "", "   ")
 		if err != nil {
-			log.Errorln("Cannot marshal xml!", err)
+			log.Errorln("Cannot marshal to xml:", err)
+			return
+		}
+		log.Printf("--- t dump:\n%s\n\n", string(data))
+	}
+
+	json := func() {
+		data, err := json.MarshalIndent(&i.info, "", "   ")
+		if err != nil {
+			log.Errorln("Cannot marshal to json:", err)
 			return
 		}
 		log.Printf("--- t dump:\n%s\n\n", string(data))
@@ -145,5 +155,7 @@ func (i *InfrastructureInfoBuilder) Build(to types.EncodingType) {
 		xml()
 	case types.YAML:
 		yaml()
+	case types.JSON:
+		json()
 	}
 }
