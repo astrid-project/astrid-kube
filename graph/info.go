@@ -4,9 +4,10 @@ import (
 	"sync"
 	"time"
 
+	"encoding/xml"
+
 	log "github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
-
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	types "github.com/SunSince90/ASTRID-kube/types"
@@ -17,7 +18,7 @@ import (
 type InfrastructureInfo interface {
 	PushService(string, *core_v1.ServiceSpec)
 	PushInstance(string, string, string)
-	Build()
+	Build(types.EncodingType)
 }
 
 type InfrastructureInfoBuilder struct {
@@ -105,7 +106,7 @@ func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
 	})
 }
 
-func (i *InfrastructureInfoBuilder) Build() {
+func (i *InfrastructureInfoBuilder) Build(to types.EncodingType) {
 	nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
 	if err != nil {
 		log.Errorln("Cannot get nodes:", err)
@@ -121,10 +122,28 @@ func (i *InfrastructureInfoBuilder) Build() {
 		}
 	}
 
-	data, err := yaml.Marshal(&i.info)
-	if err != nil {
-		log.Errorln("Cannot marshal yaml!", err)
-		return
+	yaml := func() {
+		data, err := yaml.Marshal(&i.info)
+		if err != nil {
+			log.Errorln("Cannot marshal yaml!", err)
+			return
+		}
+		log.Printf("--- t dump:\n%s\n\n", string(data))
 	}
-	log.Printf("--- t dump:\n%s\n\n", string(data))
+
+	xml := func() {
+		data, err := xml.Marshal(&i.info)
+		if err != nil {
+			log.Errorln("Cannot marshal xml!", err)
+			return
+		}
+		log.Printf("--- t dump:\n%s\n\n", string(data))
+	}
+
+	switch to {
+	case types.XML:
+		xml()
+	case types.YAML:
+		yaml()
+	}
 }

@@ -206,5 +206,5 @@ func (handler *InfrastructureHandler) canBuildInfo() {
 	}
 
 	handler.log.Infoln("The graph is fully running. Building Infrastructure Info...")
-	handler.infoBuilder.Build()
+	handler.infoBuilder.Build(astrid_types.XML)
 }
