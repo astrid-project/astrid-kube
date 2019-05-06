@@ -61,7 +61,11 @@ func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.Servi
 
 	for _, ports := range spec.Ports {
 		if ports.Name == name+"-ambassador-port" {
-			service.AmbassadorPort = ports.NodePort
+			service.AmbassadorPort = types.InfrastructureInfoServicePort{
+				Port:     9000,
+				Exposed:  ports.NodePort,
+				Protocol: types.TCP,
+			}
 		} else {
 			var protocol types.InfrastructureInfoProtocol
 			switch ports.Protocol {
@@ -71,9 +75,9 @@ func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.Servi
 				protocol = types.UDP
 			}
 
-			service.ExposedPorts = append(service.ExposedPorts, ports.NodePort)
-			service.InternalPorts = append(service.InternalPorts, types.InfrastructureInfoServiceInternalPort{
+			service.Ports = append(service.Ports, types.InfrastructureInfoServicePort{
 				Port:     ports.TargetPort.IntVal,
+				Exposed:  ports.NodePort,
 				Protocol: protocol,
 			})
 		}

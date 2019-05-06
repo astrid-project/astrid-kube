@@ -23,16 +23,16 @@ type InfrastructureInfoNode struct {
 }
 
 type InfrastructureInfoService struct {
-	Name           string                                  `yaml:"name"`
-	ExposedPorts   []int32                                 `yaml:"exposedPorts"`
-	AmbassadorPort int32                                   `yaml:"ambassadorPort"`
-	InternalPorts  []InfrastructureInfoServiceInternalPort `yaml:"internalPorts"`
-	Instances      []InfrastructureInfoServiceInstance     `yaml:"instances"`
+	Name           string                              `yaml:"name"`
+	Ports          []InfrastructureInfoServicePort     `yaml:"ports"`
+	AmbassadorPort InfrastructureInfoServicePort       `yaml:"ambassadorPort"`
+	Instances      []InfrastructureInfoServiceInstance `yaml:"instances"`
 }
 
-type InfrastructureInfoServiceInternalPort struct {
+type InfrastructureInfoServicePort struct {
 	Port     int32                      `yaml:"port"`
 	Protocol InfrastructureInfoProtocol `yaml:"protocol"`
+	Exposed  int32                      `yaml:"Exposed"`
 }
 
 type InfrastructureInfoProtocol string
