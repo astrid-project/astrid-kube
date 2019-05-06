@@ -132,7 +132,7 @@ func (i *InfrastructureInfoBuilder) Build(to types.EncodingType) {
 	}
 
 	xml := func() {
-		data, err := xml.Marshal(&i.info)
+		data, err := xml.MarshalIndent(&i.info, "", "   ")
 		if err != nil {
 			log.Errorln("Cannot marshal xml!", err)
 			return

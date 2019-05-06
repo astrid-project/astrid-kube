@@ -3,36 +3,36 @@ package types
 import "time"
 
 type InfrastructureInfo struct {
-	Kind     string                     `yaml:"kind" xml:"kind"`
-	Metadata InfrastructureInfoMetadata `yaml:"metadata" yaml:"metadata"`
-	Spec     InfrastructureInfoSpec     `yaml:"spec" yaml:"spec"`
+	Kind     string                     `yaml:"kind" xml:"-"`
+	Metadata InfrastructureInfoMetadata `yaml:"metadata" xml:"Metadata"`
+	Spec     InfrastructureInfoSpec     `yaml:"spec" xml:"Spec"`
 }
 
 type InfrastructureInfoMetadata struct {
-	Name       string    `yaml:"name" yaml:"name"`
-	LastUpdate time.Time `yaml:"lastUpdate" yaml:"lastUpdate"`
+	Name       string    `yaml:"name" xml:"name,attr"`
+	LastUpdate time.Time `yaml:"lastUpdate" xml:"lastUpdate,attr"`
 }
 
 type InfrastructureInfoSpec struct {
-	Nodes    []InfrastructureInfoNode    `yaml:"nodes" yaml:"nodes" `
-	Services []InfrastructureInfoService `yaml:"services" yaml:"services"`
+	Nodes    []InfrastructureInfoNode    `yaml:"nodes" xml:"Node" `
+	Services []InfrastructureInfoService `yaml:"services" xml:"Service"`
 }
 
 type InfrastructureInfoNode struct {
-	IP string `yaml:"ip" yaml:"ip"`
+	IP string `yaml:"ip" xml:"ip,attr"`
 }
 
 type InfrastructureInfoService struct {
-	Name           string                              `yaml:"name" yaml:"name"`
-	Ports          []InfrastructureInfoServicePort     `yaml:"ports" yaml:"ports"`
-	AmbassadorPort InfrastructureInfoServicePort       `yaml:"ambassadorPort" yaml:"ambassadorPort"`
-	Instances      []InfrastructureInfoServiceInstance `yaml:"instances" yaml:"instances"`
+	Name           string                              `yaml:"name" xml:"name,attr"`
+	Ports          []InfrastructureInfoServicePort     `yaml:"ports" xml:"Port"`
+	AmbassadorPort InfrastructureInfoServicePort       `yaml:"ambassadorPort" xml:"AmbassadorPort"`
+	Instances      []InfrastructureInfoServiceInstance `yaml:"instances" xml:"Instance"`
 }
 
 type InfrastructureInfoServicePort struct {
-	Port     int32                      `yaml:"port" yaml:"port"`
-	Protocol InfrastructureInfoProtocol `yaml:"protocol" yaml:"protocol"`
-	Exposed  int32                      `yaml:"exposed" yaml:"exposed"`
+	Port     int32                      `yaml:"port" xml:"internal,attr"`
+	Protocol InfrastructureInfoProtocol `yaml:"protocol" xml:"protocol,attr"`
+	Exposed  int32                      `yaml:"exposed" xml:"exposed,attr"`
 }
 
 type InfrastructureInfoProtocol string
@@ -45,6 +45,6 @@ const (
 )
 
 type InfrastructureInfoServiceInstance struct {
-	IP  string `yaml:"ip" yaml:"ip"`
-	UID string `yaml:"uid" yaml:"uid"`
+	IP  string `yaml:"ip" xml:"ip,attr"`
+	UID string `yaml:"uid" xml:"uid,attr"`
 }
