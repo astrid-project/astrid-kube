@@ -4,6 +4,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/SunSince90/ASTRID-kube/informers"
+	"github.com/SunSince90/ASTRID-kube/types"
+
 	log "github.com/sirupsen/logrus"
 	core_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +28,8 @@ type graphManager struct {
 	stop            chan struct{}
 	lock            sync.Mutex
 	infrastructures map[string]Infrastructure
+	nodeInformer    informers.Informer
+	nodesList       map[string]bool
 }
 
 // InitManager will initialize the graph manager
@@ -35,10 +40,21 @@ func InitManager(clientset kubernetes.Interface, stop chan struct{}) Manager {
 		clientset:       clientset,
 		stop:            stop,
 		infrastructures: map[string]Infrastructure{},
+		nodeInformer:    informers.New(types.Nodes, ""),
+		nodesList:       map[string]bool{},
 	}
 
 	informer := manager.getInformer()
 	manager.informer = informer
+
+	manager.nodeInformer.AddEventHandler(func(obj interface{}) {
+		manager.lock.Lock()
+		defer manager.lock.Unlock()
+
+		n := obj.(*core_v1.Node)
+		manager.nodesList[n.Name] = true
+	}, nil, nil)
+	manager.nodeInformer.Start()
 
 	return manager
 }
