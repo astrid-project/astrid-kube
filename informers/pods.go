@@ -68,6 +68,10 @@ func (podInformer *PodsInformer) AddEventHandler(add func(interface{}), update f
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
+			pod := podInformer.parseObject(obj)
+			if pod != nil && delete != nil {
+				delete(obj)
+			}
 		},
 	})
 }

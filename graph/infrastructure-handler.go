@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/SunSince90/ASTRID-kube/utils"
 
@@ -33,6 +34,7 @@ type InfrastructureHandler struct {
 	services            map[string]*core_v1.ServiceSpec
 	lock                sync.Mutex
 	infoBuilder         InfrastructureInfo
+	initialized         bool
 }
 
 type count struct {
@@ -57,6 +59,7 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 		services:    map[string]*core_v1.ServiceSpec{},
 		resources:   map[string]bool{},
 		log:         log.New().WithFields(log.Fields{"GRAPH": namespace.Name}),
+		initialized: false,
 		infoBuilder: newBuilder(clientset, namespace.Name),
 	}
 
@@ -161,7 +164,11 @@ func (handler *InfrastructureHandler) listen() {
 	}, func(old, obj interface{}) {
 		p := obj.(*core_v1.Pod)
 		handler.handlePod(p)
-	}, nil)
+	}, func(obj interface{}) {
+		p := obj.(*core_v1.Pod)
+		handler.log.Infoln("Detected dead pod:", p.Name)
+		handler.infoBuilder.PopInstance(p.Name)
+	})
 	handler.podInformer = podInformer
 	handler.podInformer.Start()
 }
@@ -191,18 +198,28 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 		return
 	}
 
-	handler.log.Infoln("Detected running pod:", pod.Name)
-	if !utils.CreateFirewall(pod.Status.PodIP) {
+	if pod.ObjectMeta.DeletionTimestamp != nil {
 		return
 	}
-	handler.log.Infoln("Created firewall for pod:", pod.Name)
 
-	//	TODO: look int pod.name as uid
-	handler.infoBuilder.PushInstance(pod.Labels["astrid.io/service"], pod.Status.PodIP, pod.Name)
-	dep.current++
-	if dep.current == dep.needed {
-		handler.canBuildInfo()
-	}
+	handler.log.Infoln("Detected running pod:", pod.Name)
+	time.AfterFunc(time.Second*10, func() {
+		if !utils.CreateFirewall(pod.Status.PodIP) {
+			return
+		}
+		handler.log.Infoln("Created firewall for pod:", pod.Name)
+
+		//	TODO: look int pod.name as uid
+		handler.infoBuilder.PushInstance(pod.Labels["astrid.io/service"], pod.Status.PodIP, pod.Name)
+		if handler.initialized {
+			return
+		}
+
+		dep.current++
+		if dep.current == dep.needed {
+			handler.canBuildInfo()
+		}
+	})
 }
 
 func (handler *InfrastructureHandler) canBuildInfo() {
@@ -212,6 +229,7 @@ func (handler *InfrastructureHandler) canBuildInfo() {
 		}
 	}
 
+	handler.initialized = true
 	handler.log.Infoln("The graph is fully running. Building Infrastructure Info...")
-	handler.infoBuilder.Build(astrid_types.XML)
+	handler.infoBuilder.ToggleSending()
 }
