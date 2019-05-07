@@ -19,6 +19,8 @@ import (
 type InfrastructureInfo interface {
 	PushService(string, *core_v1.ServiceSpec)
 	PushInstance(string, string, string)
+	PopInstance(string)
+	ToggleSending()
 	Build(types.EncodingType)
 }
 
@@ -26,8 +28,9 @@ type InfrastructureInfoBuilder struct {
 	lock              sync.Mutex
 	info              types.InfrastructureInfo
 	deployedServices  map[string]int
-	deployedInstances map[string]int
+	deployedInstances map[string]*offset
 	clientset         kubernetes.Interface
+	canSend           bool
 }
 
 func newBuilder(clientset kubernetes.Interface, name string) InfrastructureInfo {
@@ -44,8 +47,15 @@ func newBuilder(clientset kubernetes.Interface, name string) InfrastructureInfo 
 		info:              info,
 		clientset:         clientset,
 		deployedServices:  map[string]int{},
-		deployedInstances: map[string]int{},
+		deployedInstances: map[string]*offset{},
+		canSend:           false,
 	}
+}
+
+type offset struct {
+	value    string
+	position int
+	owner    string
 }
 
 func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.ServiceSpec) {
@@ -96,18 +106,118 @@ func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
 	if !exists {
 		return
 	}
-	if _, exists := i.deployedInstances[uid]; exists {
-		return
+
+	existingIP, exists := i.deployedInstances[uid]
+	if exists {
+		if existingIP.value == ip {
+			return
+		}
+		existingIP.value = ip
+	} else {
+		i.deployedInstances[uid] = &offset{
+			position: len(i.info.Spec.Services[serviceOffset].Instances),
+			value:    ip,
+			owner:    service,
+		}
 	}
 
-	i.deployedInstances[uid] = len(i.info.Spec.Services[serviceOffset].Instances)
 	i.info.Spec.Services[serviceOffset].Instances = append(i.info.Spec.Services[serviceOffset].Instances, types.InfrastructureInfoServiceInstance{
 		IP:  ip,
 		UID: uid,
 	})
+
+	i.send(types.XML)
+
+}
+
+func (i *InfrastructureInfoBuilder) PopInstance(uid string) {
+	i.lock.Lock()
+	defer i.lock.Unlock()
+
+	instance, exists := i.deployedInstances[uid]
+	if !exists {
+		return
+	}
+
+	serviceOffset, exists := i.deployedServices[instance.owner]
+	if !exists {
+		return
+	}
+
+	//	Only one?
+	if len(i.info.Spec.Services[serviceOffset].Instances) == 1 {
+		i.info.Spec.Services[serviceOffset].Instances = []types.InfrastructureInfoServiceInstance{}
+	} else {
+		//	swap
+		t := instance.position
+		i.info.Spec.Services[serviceOffset].Instances = append(i.info.Spec.Services[serviceOffset].Instances[:t], i.info.Spec.Services[serviceOffset].Instances[t+1:]...)
+	}
+
+	i.send(types.XML)
+
+}
+
+func (i *InfrastructureInfoBuilder) ToggleSending() {
+	i.canSend = !i.canSend
 }
 
 func (i *InfrastructureInfoBuilder) Build(to types.EncodingType) {
+	nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
+	if err != nil {
+		log.Errorln("Cannot get nodes:", err)
+		return
+	}
+
+	if len(i.info.Spec.Nodes) < 1 {
+		for _, node := range nodes.Items {
+			i.info.Spec.Nodes = append(i.info.Spec.Nodes, types.InfrastructureInfoNode{
+				//	TODO: check this out
+				IP: node.Status.Addresses[0].Address,
+			})
+		}
+	}
+
+	yaml := func() {
+		data, err := yaml.Marshal(&i.info)
+		if err != nil {
+			log.Errorln("Cannot marshal to yaml:", err)
+			return
+		}
+		log.Printf("--- t dump:\n%s\n\n", string(data))
+	}
+
+	xml := func() {
+		data, err := xml.MarshalIndent(&i.info, "", "   ")
+		if err != nil {
+			log.Errorln("Cannot marshal to xml:", err)
+			return
+		}
+		log.Printf("--- t dump:\n%s\n\n", string(data))
+	}
+
+	json := func() {
+		data, err := json.MarshalIndent(&i.info, "", "   ")
+		if err != nil {
+			log.Errorln("Cannot marshal to json:", err)
+			return
+		}
+		log.Printf("--- t dump:\n%s\n\n", string(data))
+	}
+
+	switch to {
+	case types.XML:
+		xml()
+	case types.YAML:
+		yaml()
+	case types.JSON:
+		json()
+	}
+}
+
+func (i *InfrastructureInfoBuilder) send(to types.EncodingType) {
+	if !i.canSend {
+		return
+	}
 	nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
 	if err != nil {
 		log.Errorln("Cannot get nodes:", err)

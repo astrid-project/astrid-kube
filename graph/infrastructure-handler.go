@@ -161,7 +161,10 @@ func (handler *InfrastructureHandler) listen() {
 	}, func(old, obj interface{}) {
 		p := obj.(*core_v1.Pod)
 		handler.handlePod(p)
-	}, nil)
+	}, func(obj interface{}) {
+		p := obj.(*core_v1.Pod)
+		handler.infoBuilder.PopInstance(p.Name)
+	})
 	handler.podInformer = podInformer
 	handler.podInformer.Start()
 }
