@@ -159,9 +159,17 @@ func (i *InfrastructureInfoBuilder) PopInstance(uid string) {
 
 func (i *InfrastructureInfoBuilder) ToggleSending() {
 	i.canSend = !i.canSend
+
+	//	Send immediately
+	if i.canSend {
+		i.send(types.XML)
+	}
 }
 
 func (i *InfrastructureInfoBuilder) Build(to types.EncodingType) {
+	i.lock.Lock()
+	defer i.lock.Unlock()
+
 	nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
 	if err != nil {
 		log.Errorln("Cannot get nodes:", err)
@@ -218,6 +226,10 @@ func (i *InfrastructureInfoBuilder) send(to types.EncodingType) {
 	if !i.canSend {
 		return
 	}
+
+	i.lock.Lock()
+	defer i.lock.Unlock()
+
 	nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
 	if err != nil {
 		log.Errorln("Cannot get nodes:", err)
