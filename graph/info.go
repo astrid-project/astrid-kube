@@ -224,9 +224,6 @@ func (i *InfrastructureInfoBuilder) send(to types.EncodingType) {
 		return
 	}
 
-	i.lock.Lock()
-	defer i.lock.Unlock()
-
 	nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
 	if err != nil {
 		log.Errorln("Cannot get nodes:", err)
