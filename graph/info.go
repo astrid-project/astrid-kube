@@ -127,7 +127,6 @@ func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
 	})
 
 	i.send(types.XML)
-
 }
 
 func (i *InfrastructureInfoBuilder) PopInstance(uid string) {
@@ -152,9 +151,7 @@ func (i *InfrastructureInfoBuilder) PopInstance(uid string) {
 		t := instance.position
 		i.info.Spec.Services[serviceOffset].Instances = append(i.info.Spec.Services[serviceOffset].Instances[:t], i.info.Spec.Services[serviceOffset].Instances[t+1:]...)
 	}
-
 	i.send(types.XML)
-
 }
 
 func (i *InfrastructureInfoBuilder) ToggleSending() {
