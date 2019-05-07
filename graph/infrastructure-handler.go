@@ -166,6 +166,7 @@ func (handler *InfrastructureHandler) listen() {
 		handler.handlePod(p)
 	}, func(obj interface{}) {
 		p := obj.(*core_v1.Pod)
+		handler.log.Infoln("Detected dead pod:", p.Name)
 		handler.infoBuilder.PopInstance(p.Name)
 	})
 	handler.podInformer = podInformer
