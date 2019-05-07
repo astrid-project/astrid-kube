@@ -3,7 +3,6 @@ package graph
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
@@ -276,7 +275,7 @@ func (i *InfrastructureInfoBuilder) generate(to types.EncodingType) ([]byte, err
 		data, err = json()
 	}
 
-	log.Printf("--- t dump:\n%s\n\n", string(data))
+	log.Printf("# --- Infrastructure Info to send: --- #:\n%s\n\n# --- /Infrastructure Info to send --- #", string(data))
 	return data, nil
 }
 
@@ -313,30 +312,5 @@ func (i *InfrastructureInfoBuilder) send(to types.EncodingType) {
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("response Status:", resp.Status)
-	fmt.Println("response Headers:", resp.Header)
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("response Body:", string(body))
+	fmt.Println("Sent infrastructure info and received", resp.Status)
 }
-
-/*
-	time.Sleep(time.Second * 15)
-	url := "http://localhost:8081"
-	fmt.Println("URL:>", url)
-
-	var jsonStr = []byte(`{"title":"Buy cheese and bread for breakfast."}`)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-	req.Header.Set("X-Custom-Header", "myvalue")
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-
-	fmt.Println("response Status:", resp.Status)
-	fmt.Println("response Headers:", resp.Header)
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("response Body:", string(body))*/
