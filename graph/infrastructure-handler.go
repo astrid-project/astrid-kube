@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/SunSince90/ASTRID-kube/utils"
+
 	informer "github.com/SunSince90/ASTRID-kube/informers"
 	astrid_types "github.com/SunSince90/ASTRID-kube/types"
 	log "github.com/sirupsen/logrus"
@@ -190,6 +192,11 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 	}
 
 	handler.log.Infoln("Detected running pod:", pod.Name)
+	if !utils.CreateFirewall(pod.Status.PodIP) {
+		return
+	}
+	handler.log.Infoln("Created firewall for pod:", pod.Name)
+
 	//	TODO: look int pod.name as uid
 	handler.infoBuilder.PushInstance(pod.Labels["astrid.io/service"], pod.Status.PodIP, pod.Name)
 	dep.current++
