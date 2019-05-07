@@ -1,6 +1,10 @@
 package graph
 
 import (
+	"bytes"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"sync"
 	"time"
 
@@ -219,15 +223,11 @@ func (i *InfrastructureInfoBuilder) Build(to types.EncodingType) {
 	}
 }
 
-func (i *InfrastructureInfoBuilder) send(to types.EncodingType) {
-	if !i.canSend {
-		return
-	}
-
+func (i *InfrastructureInfoBuilder) generate(to types.EncodingType) ([]byte, error) {
 	nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
 	if err != nil {
 		log.Errorln("Cannot get nodes:", err)
-		return
+		return nil, nil
 	}
 
 	if len(i.info.Spec.Nodes) < 1 {
@@ -239,39 +239,104 @@ func (i *InfrastructureInfoBuilder) send(to types.EncodingType) {
 		}
 	}
 
-	yaml := func() {
+	yaml := func() ([]byte, error) {
 		data, err := yaml.Marshal(&i.info)
 		if err != nil {
 			log.Errorln("Cannot marshal to yaml:", err)
-			return
+			return nil, err
 		}
-		log.Printf("--- t dump:\n%s\n\n", string(data))
+		return data, nil
 	}
 
-	xml := func() {
+	xml := func() ([]byte, error) {
 		data, err := xml.MarshalIndent(&i.info, "", "   ")
 		if err != nil {
 			log.Errorln("Cannot marshal to xml:", err)
-			return
+			return nil, err
 		}
-		log.Printf("--- t dump:\n%s\n\n", string(data))
+		return data, nil
 	}
 
-	json := func() {
+	json := func() ([]byte, error) {
 		data, err := json.MarshalIndent(&i.info, "", "   ")
 		if err != nil {
 			log.Errorln("Cannot marshal to json:", err)
-			return
+			return nil, err
 		}
-		log.Printf("--- t dump:\n%s\n\n", string(data))
+		return data, nil
 	}
 
+	var data []byte
 	switch to {
 	case types.XML:
-		xml()
+		data, err = xml()
 	case types.YAML:
-		yaml()
+		data, err = yaml()
 	case types.JSON:
-		json()
+		data, err = json()
 	}
+
+	log.Printf("--- t dump:\n%s\n\n", string(data))
+	return data, nil
 }
+
+func (i *InfrastructureInfoBuilder) send(to types.EncodingType) {
+	if !i.canSend {
+		return
+	}
+
+	data, err := i.generate(to)
+	if err != nil {
+		return
+	}
+
+	var contentType string
+	switch to {
+	case types.XML:
+		contentType = types.ContentTypeXML
+	case types.JSON:
+		contentType = types.ContentTypeJSON
+	case types.YAML:
+		contentType = types.ContentTypeYAML
+	}
+
+	//	TODO: change these in a better format
+	url := "http://localhost:8081"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	req.Header.Set("Content-Type", contentType)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Errorln("Error while trying to send request:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("response Status:", resp.Status)
+	fmt.Println("response Headers:", resp.Header)
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println("response Body:", string(body))
+}
+
+/*
+	time.Sleep(time.Second * 15)
+	url := "http://localhost:8081"
+	fmt.Println("URL:>", url)
+
+	var jsonStr = []byte(`{"title":"Buy cheese and bread for breakfast."}`)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	req.Header.Set("X-Custom-Header", "myvalue")
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("response Status:", resp.Status)
+	fmt.Println("response Headers:", resp.Header)
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println("response Body:", string(body))*/
