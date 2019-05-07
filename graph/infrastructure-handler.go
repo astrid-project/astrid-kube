@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/SunSince90/ASTRID-kube/utils"
 
@@ -195,17 +196,19 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 	}
 
 	handler.log.Infoln("Detected running pod:", pod.Name)
-	if !utils.CreateFirewall(pod.Status.PodIP) {
-		return
-	}
-	handler.log.Infoln("Created firewall for pod:", pod.Name)
+	time.AfterFunc(time.Second*10, func() {
+		if !utils.CreateFirewall(pod.Status.PodIP) {
+			return
+		}
+		handler.log.Infoln("Created firewall for pod:", pod.Name)
 
-	//	TODO: look int pod.name as uid
-	handler.infoBuilder.PushInstance(pod.Labels["astrid.io/service"], pod.Status.PodIP, pod.Name)
-	dep.current++
-	if dep.current == dep.needed {
-		handler.canBuildInfo()
-	}
+		//	TODO: look int pod.name as uid
+		handler.infoBuilder.PushInstance(pod.Labels["astrid.io/service"], pod.Status.PodIP, pod.Name)
+		dep.current++
+		if dep.current == dep.needed {
+			handler.canBuildInfo()
+		}
+	})
 }
 
 func (handler *InfrastructureHandler) canBuildInfo() {
