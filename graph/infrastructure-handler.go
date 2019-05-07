@@ -195,6 +195,10 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 		return
 	}
 
+	if pod.ObjectMeta.DeletionTimestamp != nil {
+		return
+	}
+
 	handler.log.Infoln("Detected running pod:", pod.Name)
 	time.AfterFunc(time.Second*10, func() {
 		if !utils.CreateFirewall(pod.Status.PodIP) {
