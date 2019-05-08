@@ -284,6 +284,9 @@ func (i *InfrastructureInfoBuilder) send(to types.EncodingType) {
 		return
 	}
 
+	//	update
+	i.info.Metadata.LastUpdate = time.Now().UTC()
+
 	data, err := i.generate(to)
 	if err != nil {
 		return

@@ -174,9 +174,6 @@ func (handler *InfrastructureHandler) listen() {
 }
 
 func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
-	handler.lock.Lock()
-	defer handler.lock.Unlock()
-
 	if pod.Status.Phase != core_v1.PodRunning {
 		return
 	}
@@ -186,24 +183,37 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 		return
 	}
 
-	depName, exists := pod.Labels["astrid.io/deployment"]
-	if !exists {
-		handler.log.Errorln(pod.Name, "does not have a deployment label")
-		return
-	}
-
-	dep, exists := handler.deployments[depName]
-	if !exists {
-		handler.log.Errorln(depName, "does not exist")
-		return
-	}
-
 	if pod.ObjectMeta.DeletionTimestamp != nil {
 		return
 	}
 
+	//	Doing it here so we can speed up some parts
+	shouldStop := func() (*count, bool) {
+		handler.lock.Lock()
+		defer handler.lock.Unlock()
+
+		depName, exists := pod.Labels["astrid.io/deployment"]
+		if !exists {
+			handler.log.Errorln(pod.Name, "does not have a deployment label")
+			return nil, true
+		}
+
+		dep, exists := handler.deployments[depName]
+		if !exists {
+			handler.log.Errorln(depName, "does not exist")
+			return nil, true
+		}
+
+		return dep, false
+	}
+
+	dep, stop := shouldStop()
+	if stop {
+		return
+	}
+
 	handler.log.Infoln("Detected running pod:", pod.Name)
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 3)
 
 	if !utils.CreateFirewall(pod.Status.PodIP) {
 		return
@@ -216,10 +226,13 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 
 	//	TODO: look int pod.name as uid
 	handler.infoBuilder.PushInstance(pod.Labels["astrid.io/service"], pod.Status.PodIP, pod.Name)
+
+	handler.lock.Lock()
+	defer handler.lock.Unlock()
+
 	if handler.initialized {
 		return
 	}
-
 	dep.current++
 	if dep.current == dep.needed {
 		handler.canBuildInfo()
@@ -227,6 +240,7 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 }
 
 func (handler *InfrastructureHandler) canBuildInfo() {
+	//	It is better to have it like this rather than having a counter, as this is more robust for unstable pods
 	for _, dep := range handler.deployments {
 		if dep.current != dep.needed {
 			return
