@@ -19,6 +19,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+const (
+	endPoint string = "http://192.168.122.78:8083/register/insfrastructure"
+)
+
 type InfrastructureInfo interface {
 	PushService(string, *core_v1.ServiceSpec)
 	PushInstance(string, string, string)
@@ -303,8 +307,7 @@ func (i *InfrastructureInfoBuilder) send(to types.EncodingType) {
 	}
 
 	//	TODO: change these in a better format
-	url := "http://localhost:8081"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	req, err := http.NewRequest("POST", endPoint, bytes.NewBuffer(data))
 	req.Header.Set("Content-Type", contentType)
 
 	client := &http.Client{}

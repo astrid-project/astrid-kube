@@ -213,19 +213,28 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 	}
 
 	handler.log.Infoln("Detected running pod:", pod.Name)
-	time.Sleep(time.Second * 3)
+	time.AfterFunc(time.Second*5, func() {
+		handler.setupFirewall(pod, dep)
+	})
+}
 
-	if !utils.CreateFirewall(pod.Status.PodIP) {
+func (handler *InfrastructureHandler) setupFirewall(pod *core_v1.Pod, dep *count) {
+	//	shorthands
+	ip := pod.Status.PodIP
+	name := pod.Name
+	service := pod.Labels["astrid.io/service"]
+
+	if !utils.CreateFirewall(ip) {
 		return
 	}
-	handler.log.Infoln("Created firewall for pod:", pod.Name)
-	if !utils.AttachFirewall(pod.Status.PodIP) {
+	handler.log.Infoln("Created firewall for pod:", name)
+	if !utils.AttachFirewall(ip) {
 		return
 	}
-	handler.log.Infoln("Attached firewall to pod:", pod.Name)
+	handler.log.Infoln("Attached firewall to pod:", name)
 
-	//	TODO: look int pod.name as uid
-	handler.infoBuilder.PushInstance(pod.Labels["astrid.io/service"], pod.Status.PodIP, pod.Name)
+	//	TODO: look into name as uid
+	handler.infoBuilder.PushInstance(service, ip, name)
 
 	handler.lock.Lock()
 	defer handler.lock.Unlock()
