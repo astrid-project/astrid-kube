@@ -19,7 +19,10 @@ func CreateFirewall(ip string) bool {
 		return false
 	}
 
-	return changeDefaultForward(ip)
+	if !changeDefaultForward(ip) {
+		return false
+	}
+	return setAsync(ip)
 }
 
 func changeDefaultForward(ip string) bool {
@@ -52,5 +55,24 @@ func AttachFirewall(ip string) bool {
 		log.Infoln("Could not attach firewall:", err, resp)
 		return false
 	}
+	return true
+}
+
+func setAsync(ip string) bool {
+	jsonStr := []byte(`true`)
+	client := http.Client{}
+
+	req, err := http.NewRequest("PATCH", "http://"+ip+":9000"+polycubePath+firewallPath+"fw/interactive", bytes.NewBuffer(jsonStr))
+	if err != nil {
+		log.Infoln("Could not set firewall as asynchronous", err, req)
+		return false
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Infoln("Could not set firewall as asynchronous", err, resp)
+		return false
+	}
+	defer resp.Body.Close()
 	return true
 }
