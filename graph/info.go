@@ -84,6 +84,13 @@ func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.Servi
 		Name: name,
 	}
 
+	//	Put security components
+	for _, sc := range securityComponents {
+		service.SecurityComponents = append(service.SecurityComponents, types.InfrastructureInfoSecurityComponent{
+			Name: sc,
+		})
+	}
+
 	for _, ports := range spec.Ports {
 		if ports.Name == name+"-ambassador-port" {
 			service.AmbassadorPort = types.InfrastructureInfoServicePort{
