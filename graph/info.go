@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SunSince90/ASTRID-kube/settings"
+
 	"encoding/json"
 	"encoding/xml"
 
@@ -19,12 +21,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-const (
-	endPoint string = "http://192.168.122.78:8083/register/insfrastructure"
-)
-
 type InfrastructureInfo interface {
-	PushService(string, *core_v1.ServiceSpec)
+	PushService(string, *core_v1.ServiceSpec, []string)
 	PushInstance(string, string, string)
 	PopInstance(string)
 	ToggleSending()
@@ -70,7 +68,7 @@ func newBuilder(clientset kubernetes.Interface, name string) InfrastructureInfo 
 	}
 }
 
-func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.ServiceSpec) {
+func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.ServiceSpec, securityComponents []string) {
 	i.lock.Lock()
 	defer i.lock.Unlock()
 
@@ -79,7 +77,8 @@ func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.Servi
 	}
 
 	i.deployedServices[name] = &serviceOffset{
-		position: len(i.info.Spec.Services),
+		position:           len(i.info.Spec.Services),
+		securityComponents: securityComponents,
 	}
 	service := types.InfrastructureInfoService{
 		Name: name,
@@ -315,7 +314,7 @@ func (i *InfrastructureInfoBuilder) send(to types.EncodingType) {
 		contentType = types.ContentTypeYAML
 	}
 
-	//	TODO: change these in a better format
+	endPoint := settings.Settings.EndPoints.Verekube
 	req, err := http.NewRequest("POST", endPoint, bytes.NewBuffer(data))
 	req.Header.Set("Content-Type", contentType)
 
