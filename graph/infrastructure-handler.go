@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
@@ -138,18 +139,14 @@ func (handler *InfrastructureHandler) handleNewDeployment(deployment *apps_v1.De
 func (handler *InfrastructureHandler) parseSecurityComponents(annotations map[string]string) []string {
 	securityComponents := []string{}
 
-	//	Parse the annotation
-	for key := range annotations {
-		if strings.HasPrefix(key, "astrid.io") {
-			splitted := strings.Split(key, "/")
-
-			switch strings.ToLower(splitted[1]) {
-			case "firewall":
-				securityComponents = append(securityComponents, "firewall")
-			}
-		}
+	//	Get the security components
+	sc, exists := annotations["astrid.io/security-components"]
+	if !exists {
+		return []string{}
 	}
 
+	data := []byte(sc)
+	json.Unmarshal(data, &securityComponents)
 	return securityComponents
 }
 
@@ -208,15 +205,14 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 		return
 	}
 
-	//	This is improbable, but just in case
-	if len(pod.Labels) < 1 {
+	//	This was needed to check the owner deployment of a pod.
+	//	But for now it is not needed
+	/*if len(pod.Labels) < 1 {
 		return
 	}
-
-	//	This is improbable, but just in case
 	if len(pod.Annotations) < 1 {
 		return
-	}
+	}*/
 
 	if pod.ObjectMeta.DeletionTimestamp != nil {
 		return
@@ -227,11 +223,13 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 		handler.lock.Lock()
 		defer handler.lock.Unlock()
 
-		depName, exists := pod.Annotations["astrid.io/deployment"]
+		//	UPDATE: for now, deployment's name is taken by checking instance's name, look below
+		/*depName, exists := pod.Annotations["astrid.io/deployment"]
 		if !exists {
 			handler.log.Errorln(pod.Name, "does not have a deployment annotation")
 			return "", nil, true
-		}
+		}*/
+		depName := strings.Split(pod.Name, "-")[0]
 
 		dep, exists := handler.deployments[depName]
 		if !exists {
@@ -257,7 +255,9 @@ func (handler *InfrastructureHandler) setupFirewall(pod *core_v1.Pod, dep *count
 	//	shorthands
 	ip := pod.Status.PodIP
 	name := pod.Name
-	service := pod.Annotations["astrid.io/service"]
+	//	UPDATE: main service name is derived by pod's name
+	//service := pod.Annotations["astrid.io/service"]
+	service := strings.Split(pod.Name, "-")[0]
 
 	if !utils.CreateFirewall(ip) {
 		return
