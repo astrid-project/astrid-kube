@@ -80,8 +80,6 @@ kind: Deployment
 metadata:
   name: nginx
   namespace: mygraph
-  annotations:
-    astrid.io/firewall: true
 spec:
   selector:
     matchLabels:
@@ -94,6 +92,7 @@ spec:
       annotations:
         astrid.io/deployment: nodejs
         astrid.io/service: nodejs
+        astrid.io/firewall: true
     spec:
       containers:
       - name: nginx
@@ -149,8 +148,6 @@ kind: Deployment
 metadata:
   name: nodejs
   namespace: mygraph
-  annotations:
-    astrid.io/firewall: true
 spec:
   selector:
     matchLabels:
@@ -163,6 +160,7 @@ spec:
       annotations:
         astrid.io/deployment: nodejs
         astrid.io/service: nodejs
+        astrid.io/firewall: true
     spec:
       containers:
       - name: nodejs
@@ -218,8 +216,6 @@ kind: Deployment
 metadata:
   name: apache
   namespace: mygraph
-  annotations:
-    astrid.io/firewall: true
 spec:
   selector:
     matchLabels:
@@ -232,6 +228,7 @@ spec:
       annotations:
         astrid.io/deployment: apache
         astrid.io/service: apache
+        astrid.io/firewall: true
     spec:
       containers:
       - name: apache

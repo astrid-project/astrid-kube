@@ -117,7 +117,7 @@ func (handler *InfrastructureHandler) handleNewDeployment(deployment *apps_v1.De
 		needed:  *deployment.Spec.Replicas,
 		current: 0,
 	}
-	handler.securityComponents[deployment.Name] = handler.parseSecurityComponents(deployment.Annotations)
+	handler.securityComponents[deployment.Name] = handler.parseSecurityComponents(deployment.Spec.Template.Annotations)
 	if len(handler.securityComponents[deployment.Name]) > 0 {
 		handler.log.Infof("%s needs to be enriched with the following security components: %s", deployment.Name, strings.Join(handler.securityComponents[deployment.Name], ","))
 	}
