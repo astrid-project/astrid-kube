@@ -23,10 +23,15 @@ type InfrastructureInfoNode struct {
 }
 
 type InfrastructureInfoService struct {
-	Name           string                              `yaml:"name"  json:"name" xml:"name,attr"`
-	Ports          []InfrastructureInfoServicePort     `yaml:"ports"  json:"ports" xml:"Port"`
-	AmbassadorPort InfrastructureInfoServicePort       `yaml:"ambassadorPort"  json:"ambassadorPort" xml:"AmbassadorPort"`
-	Instances      []InfrastructureInfoServiceInstance `yaml:"instances"  json:"instances" xml:"Instance"`
+	Name               string                                `yaml:"name"  json:"name" xml:"name,attr"`
+	SecurityComponents []InfrastructureInfoSecurityComponent `yaml:"securityComponents"  json:"securityComponents" xml:"SecurityComponent"`
+	Ports              []InfrastructureInfoServicePort       `yaml:"ports"  json:"ports" xml:"Port"`
+	AmbassadorPort     InfrastructureInfoServicePort         `yaml:"ambassadorPort"  json:"ambassadorPort" xml:"AmbassadorPort"`
+	Instances          []InfrastructureInfoServiceInstance   `yaml:"instances"  json:"instances" xml:"Instance"`
+}
+
+type InfrastructureInfoSecurityComponent struct {
+	Name string `yaml:"name"  json:"name" xml:"name,attr"`
 }
 
 type InfrastructureInfoServicePort struct {

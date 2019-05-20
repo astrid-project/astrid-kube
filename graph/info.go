@@ -34,10 +34,21 @@ type InfrastructureInfo interface {
 type InfrastructureInfoBuilder struct {
 	lock              sync.Mutex
 	info              types.InfrastructureInfo
-	deployedServices  map[string]int
-	deployedInstances map[string]*offset
+	deployedServices  map[string]*serviceOffset
+	deployedInstances map[string]*instanceOffset
 	clientset         kubernetes.Interface
 	canSend           bool
+}
+
+type serviceOffset struct {
+	securityComponents []string
+	position           int
+}
+
+type instanceOffset struct {
+	value    string
+	position int
+	owner    string
 }
 
 func newBuilder(clientset kubernetes.Interface, name string) InfrastructureInfo {
@@ -53,16 +64,10 @@ func newBuilder(clientset kubernetes.Interface, name string) InfrastructureInfo 
 	return &InfrastructureInfoBuilder{
 		info:              info,
 		clientset:         clientset,
-		deployedServices:  map[string]int{},
-		deployedInstances: map[string]*offset{},
+		deployedServices:  map[string]*serviceOffset{},
+		deployedInstances: map[string]*instanceOffset{},
 		canSend:           false,
 	}
-}
-
-type offset struct {
-	value    string
-	position int
-	owner    string
 }
 
 func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.ServiceSpec) {
@@ -73,7 +78,9 @@ func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.Servi
 		return
 	}
 
-	i.deployedServices[name] = len(i.info.Spec.Services)
+	i.deployedServices[name] = &serviceOffset{
+		position: len(i.info.Spec.Services),
+	}
 	service := types.InfrastructureInfoService{
 		Name: name,
 	}
@@ -109,10 +116,11 @@ func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
 	i.lock.Lock()
 	defer i.lock.Unlock()
 
-	serviceOffset, exists := i.deployedServices[service]
+	s, exists := i.deployedServices[service]
 	if !exists {
 		return
 	}
+	serviceOffset := s.position
 
 	existingIP, exists := i.deployedInstances[uid]
 	if exists {
@@ -121,7 +129,7 @@ func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
 		}
 		existingIP.value = ip
 	} else {
-		i.deployedInstances[uid] = &offset{
+		i.deployedInstances[uid] = &instanceOffset{
 			position: len(i.info.Spec.Services[serviceOffset].Instances),
 			value:    ip,
 			owner:    service,
@@ -145,10 +153,11 @@ func (i *InfrastructureInfoBuilder) PopInstance(uid string) {
 		return
 	}
 
-	serviceOffset, exists := i.deployedServices[instance.owner]
+	s, exists := i.deployedServices[instance.owner]
 	if !exists {
 		return
 	}
+	serviceOffset := s.position
 
 	//	Only one?
 	if len(i.info.Spec.Services[serviceOffset].Instances) == 1 {
