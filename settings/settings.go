@@ -2,7 +2,6 @@ package settings
 
 import (
 	"io/ioutil"
-	osUser "os/user"
 
 	"github.com/SunSince90/ASTRID-kube/types"
 	"gopkg.in/yaml.v2"
@@ -37,10 +36,10 @@ func Load(path string) {
 }
 
 func loadDefaultKubeconfigPath() string {
-	currentUser, err := osUser.Current()
-	if err != nil {
+	files, err := ioutil.ReadDir("/home")
+	if err != nil || len(files) < 1 {
 		log.Panic("Could not get current user's name")
 	}
 
-	return "/home/" + currentUser.Name + "/.kube/config"
+	return "/home/" + files[0].Name() + "/.kube/config"
 }

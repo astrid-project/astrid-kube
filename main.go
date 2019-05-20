@@ -21,7 +21,7 @@ var (
 func main() {
 	log.Infoln("Starting...")
 
-	settings.Load("./conf.yaml")
+	settings.Load("./settings/conf.yaml")
 
 	//----------------------------------------
 	//	Start
