@@ -118,7 +118,9 @@ func (handler *InfrastructureHandler) handleNewDeployment(deployment *apps_v1.De
 		current: 0,
 	}
 	handler.securityComponents[deployment.Name] = handler.parseSecurityComponents(deployment.Annotations)
-	handler.log.Infof("%s needs to be enriched with the following security components: %s", deployment.Name, strings.Join(handler.securityComponents[deployment.Name], ","))
+	if len(handler.securityComponents[deployment.Name]) > 0 {
+		handler.log.Infof("%s needs to be enriched with the following security components: %s", deployment.Name, strings.Join(handler.securityComponents[deployment.Name], ","))
+	}
 
 	//	Do we have all deployments? If we do, and we have all the needed ones, then we can close the deployment barrier
 	if len(handler.deployments) != len(handler.resources) {
