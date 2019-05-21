@@ -294,5 +294,5 @@ func (handler *InfrastructureHandler) canBuildInfo() {
 
 	handler.initialized = true
 	handler.log.Infoln("The graph is fully running. Building Infrastructure Info...")
-	handler.infoBuilder.ToggleSending()
+	handler.infoBuilder.EnableSending()
 }

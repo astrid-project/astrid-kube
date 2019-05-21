@@ -14,18 +14,10 @@ type EndPoints struct {
 }
 
 type Formats struct {
-	InfrastructureInfo  FormatType `yaml:"infrastructureInfo"`
-	InfrastructureEvent FormatType `yaml:"infrastructureEvent"`
+	InfrastructureInfo  EncodingType `yaml:"infrastructureInfo"`
+	InfrastructureEvent EncodingType `yaml:"infrastructureEvent"`
 }
 
 type Paths struct {
 	Kubeconfig string `yaml:"kubeconfig"`
 }
-
-type FormatType string
-
-const (
-	FormatXML  FormatType = "xml"
-	FormatJSON FormatType = "json"
-	FormatYAML FormatType = "yaml"
-)
