@@ -272,6 +272,10 @@ func (i *InfrastructureInfoBuilder) sendRequest(data []byte, contentType string)
 	endPoint := settings.Settings.EndPoints.Verekube.InfrastructureEvent
 	if i.sendingMode == "infrastructure-info" {
 		endPoint = settings.Settings.EndPoints.Verekube.InfrastructureInfo
+	} else {
+		//	For the demo, we are not sending events.
+		//	Just showing them.
+		return
 	}
 
 	//	Stop and explain
