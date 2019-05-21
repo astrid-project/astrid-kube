@@ -2,6 +2,7 @@ package graph
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -34,6 +35,7 @@ type InfrastructureInfoBuilder struct {
 	deployedInstances map[string]*instanceOffset
 	clientset         kubernetes.Interface
 	sendingMode       string
+	mostRecentEvent   types.InfrastructureEvent
 }
 
 type serviceOffset struct {
@@ -63,6 +65,7 @@ func newBuilder(clientset kubernetes.Interface, name string) InfrastructureInfo 
 		deployedServices:  map[string]*serviceOffset{},
 		deployedInstances: map[string]*instanceOffset{},
 		sendingMode:       "",
+		mostRecentEvent:   types.InfrastructureEvent{},
 	}
 }
 
@@ -145,6 +148,16 @@ func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
 		UID: uid,
 	})
 
+	//	Put it in the most recent event
+	i.mostRecentEvent = types.InfrastructureEvent{
+		Type: types.New,
+		EventData: types.InfrastructureEventResource{
+			ResourceType: types.Pod,
+			Name:         service,
+			Ip:           ip,
+			Uid:          uid,
+		},
+	}
 	i.send()
 }
 
@@ -171,6 +184,16 @@ func (i *InfrastructureInfoBuilder) PopInstance(uid string) {
 		t := instance.position
 		i.info.Spec.Services[serviceOffset].Instances = append(i.info.Spec.Services[serviceOffset].Instances[:t], i.info.Spec.Services[serviceOffset].Instances[t+1:]...)
 	}
+
+	i.mostRecentEvent = types.InfrastructureEvent{
+		Type: types.Delete,
+		EventData: types.InfrastructureEventResource{
+			ResourceType: types.Pod,
+			Name:         instance.owner,
+			Ip:           instance.value,
+			Uid:          uid,
+		},
+	}
 	i.send()
 }
 
@@ -180,62 +203,6 @@ func (i *InfrastructureInfoBuilder) EnableSending() {
 	//	Send immediately
 	i.send()
 }
-
-/*func (i *InfrastructureInfoBuilder) Build(to types.EncodingType) {
-	i.lock.Lock()
-	defer i.lock.Unlock()
-
-	nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
-	if err != nil {
-		log.Errorln("Cannot get nodes:", err)
-		return
-	}
-
-	if len(i.info.Spec.Nodes) < 1 {
-		for _, node := range nodes.Items {
-			i.info.Spec.Nodes = append(i.info.Spec.Nodes, types.InfrastructureInfoNode{
-				//	TODO: check this out
-				IP: node.Status.Addresses[0].Address,
-			})
-		}
-	}
-
-	yaml := func() {
-		data, err := yaml.Marshal(&i.info)
-		if err != nil {
-			log.Errorln("Cannot marshal to yaml:", err)
-			return
-		}
-		log.Printf("--- t dump:\n%s\n\n", string(data))
-	}
-
-	xml := func() {
-		data, err := xml.MarshalIndent(&i.info, "", "   ")
-		if err != nil {
-			log.Errorln("Cannot marshal to xml:", err)
-			return
-		}
-		log.Printf("--- t dump:\n%s\n\n", string(data))
-	}
-
-	json := func() {
-		data, err := json.MarshalIndent(&i.info, "", "   ")
-		if err != nil {
-			log.Errorln("Cannot marshal to json:", err)
-			return
-		}
-		log.Printf("--- t dump:\n%s\n\n", string(data))
-	}
-
-	switch to {
-	case types.XML:
-		xml()
-	case types.YAML:
-		yaml()
-	case types.JSON:
-		json()
-	}
-}*/
 
 func (i *InfrastructureInfoBuilder) generate() ([]byte, string, error) {
 
@@ -261,18 +228,30 @@ func (i *InfrastructureInfoBuilder) generate() ([]byte, string, error) {
 		return data, contentType, nil
 	}
 
+	infrastructureEvent := func() ([]byte, string, error) {
+		data, contentType, err := utils.Marshal(settings.Settings.Formats.InfrastructureEvent, i.mostRecentEvent)
+		log.Printf("# --- Infrastructure Event to send: --- #:\n%s\n\n# --- /Infrastructure Event to send --- #", string(data))
+		return data, contentType, err
+	}
+
 	switch i.sendingMode {
 	case "infrastructure-info":
 		return infrastructureInfo()
+	case "infrastructure-event":
+		return infrastructureEvent()
 	}
 
-	return nil, "", nil
+	return nil, "", errors.New("Unrecognized sending mode")
 }
 
 func (i *InfrastructureInfoBuilder) send() {
 	if len(i.sendingMode) < 1 {
 		return
 	}
+
+	defer func() {
+		i.sendingMode = "infrastructure-event"
+	}()
 
 	data, contentType, err := i.generate()
 	if err != nil {
@@ -283,8 +262,10 @@ func (i *InfrastructureInfoBuilder) send() {
 }
 
 func (i *InfrastructureInfoBuilder) sendRequest(data []byte, contentType string) {
-	//	TODO: change endpoint based on event or info
-	endPoint := settings.Settings.EndPoints.Verekube
+	endPoint := settings.Settings.EndPoints.Verekube.InfrastructureEvent
+	if i.sendingMode == "infrastructure-info" {
+		endPoint = settings.Settings.EndPoints.Verekube.InfrastructureInfo
+	}
 	req, err := http.NewRequest("POST", endPoint, bytes.NewBuffer(data))
 	req.Header.Set("Content-Type", contentType)
 

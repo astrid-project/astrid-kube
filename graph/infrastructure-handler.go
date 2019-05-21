@@ -34,7 +34,7 @@ type InfrastructureHandler struct {
 	servBarrier         chan struct{}
 	resources           map[string]bool
 	deployments         map[string]*count
-	securityComponents  map[string][]string
+	securityComponents  map[string]map[string]bool
 	services            map[string]*core_v1.ServiceSpec
 	lock                sync.Mutex
 	infoBuilder         InfrastructureInfo
@@ -60,7 +60,7 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 		servBarrier:        make(chan struct{}),
 		clientset:          clientset,
 		deployments:        map[string]*count{},
-		securityComponents: map[string][]string{},
+		securityComponents: map[string]map[string]bool{},
 		services:           map[string]*core_v1.ServiceSpec{},
 		resources:          map[string]bool{},
 		log:                log.New().WithFields(log.Fields{"GRAPH": namespace.Name}),
@@ -120,7 +120,14 @@ func (handler *InfrastructureHandler) handleNewDeployment(deployment *apps_v1.De
 	}
 	handler.securityComponents[deployment.Name] = handler.parseSecurityComponents(deployment.Annotations)
 	if len(handler.securityComponents[deployment.Name]) > 0 {
-		handler.log.Infof("%s needs to be enriched with the following security components: %s", deployment.Name, strings.Join(handler.securityComponents[deployment.Name], ","))
+		componentsList := func() []string {
+			list := []string{}
+			for k := range handler.securityComponents[deployment.Name] {
+				list = append(list, k)
+			}
+			return list
+		}()
+		handler.log.Infof("%s needs to be enriched with the following security components: %s", deployment.Name, strings.Join(componentsList, ","))
 	}
 
 	//	Do we have all deployments? If we do, and we have all the needed ones, then we can close the deployment barrier
@@ -136,17 +143,22 @@ func (handler *InfrastructureHandler) handleNewDeployment(deployment *apps_v1.De
 	close(handler.depBarrier)
 }
 
-func (handler *InfrastructureHandler) parseSecurityComponents(annotations map[string]string) []string {
-	securityComponents := []string{}
+func (handler *InfrastructureHandler) parseSecurityComponents(annotations map[string]string) map[string]bool {
+	securityComponents := map[string]bool{}
 
 	//	Get the security components
 	sc, exists := annotations["astrid.io/security-components"]
 	if !exists {
-		return []string{}
+		return map[string]bool{}
 	}
 
 	data := []byte(sc)
-	json.Unmarshal(data, &securityComponents)
+	componentsList := []string{}
+	json.Unmarshal(data, &componentsList)
+
+	for _, component := range componentsList {
+		securityComponents[component] = true
+	}
 	return securityComponents
 }
 
@@ -157,7 +169,15 @@ func (handler *InfrastructureHandler) handleNewService(service *core_v1.Service)
 	handler.log.Infoln("Detected a new Kubernetes Service resource:", service.Name)
 
 	handler.services[service.Name] = &service.Spec
-	handler.infoBuilder.PushService(service.Name, &service.Spec, handler.securityComponents[service.Name])
+
+	componentsList := func() []string {
+		list := []string{}
+		for k := range handler.securityComponents[service.Name] {
+			list = append(list, k)
+		}
+		return list
+	}()
+	handler.infoBuilder.PushService(service.Name, &service.Spec, componentsList)
 
 	//	Do we have all services? If yes, and we have all of them, then we can close the service barrier
 	if len(handler.services) != len(handler.resources) {
@@ -246,9 +266,13 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 	}
 
 	handler.log.Infof("[%s] Detected running instance with pod name %s and IP %s", depName, pod.Name, pod.Status.PodIP)
-	time.AfterFunc(time.Second*settings.Settings.FwInitTimer, func() {
-		handler.setupFirewall(pod, dep)
-	})
+
+	//	Does it need a firewall?
+	if _, exists := handler.securityComponents[depName]["firewall"]; exists {
+		time.AfterFunc(time.Second*settings.Settings.FwInitTimer, func() {
+			handler.setupFirewall(pod, dep)
+		})
+	}
 }
 
 func (handler *InfrastructureHandler) setupFirewall(pod *core_v1.Pod, dep *count) {
