@@ -36,6 +36,7 @@ func main() {
 
 	//	Set up the node informer
 	informers.Nodes = informers.New(types.Nodes, "").(*informers.NodeInformer)
+	informers.Nodes.AddEventHandler(nil, nil, nil)
 	informers.Nodes.Start()
 
 	signalChan = make(chan os.Signal, 1)
