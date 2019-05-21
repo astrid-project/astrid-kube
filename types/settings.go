@@ -19,8 +19,8 @@ type VerekubeEndPoints struct {
 }
 
 type Formats struct {
-	InfrastructureInfo  EncodingType `yaml:"infrastructureInfo"`
-	InfrastructureEvent EncodingType `yaml:"infrastructureEvent"`
+	InfrastructureInfo  EncodingType `yaml:"infrastructure-info"`
+	InfrastructureEvent EncodingType `yaml:"infrastructure-event"`
 }
 
 type Paths struct {

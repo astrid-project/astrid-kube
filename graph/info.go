@@ -263,7 +263,7 @@ func (i *InfrastructureInfoBuilder) send() {
 
 func (i *InfrastructureInfoBuilder) sendRequest(data []byte, contentType string) {
 	endPoint := settings.Settings.EndPoints.Verekube.InfrastructureEvent
-	if i.sendingMode == "infrastucture-info" {
+	if i.sendingMode == "infrastructure-info" {
 		endPoint = settings.Settings.EndPoints.Verekube.InfrastructureInfo
 	}
 	req, err := http.NewRequest("POST", endPoint, bytes.NewBuffer(data))
