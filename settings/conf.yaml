@@ -3,8 +3,8 @@ paths:
   kubeconfig: 
 endpoints:
   verekube: 
-    infrastucture-info: http://192.168.122.78:8083/register/insfrastructure
-    infrastucture-event: 
+    infrastructure-info: http://192.168.122.78:8083/register/insfrastructure
+    infrastructure-event: 
 formats:
   infrastructureInfo: xml
   infrastructureEvent: xml

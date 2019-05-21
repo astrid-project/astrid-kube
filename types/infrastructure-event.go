@@ -1,15 +1,15 @@
 package types
 
 type InfrastructureEvent struct {
-	Type      InfrastructureEventType
-	EventData InfrastructureEventResource
+	Type      InfrastructureEventType     `yaml:"type"  json:"type" xml:"type,attr"`
+	EventData InfrastructureEventResource `yaml:"event-data"  json:"eventData" xml:"EventData"`
 }
 
 type InfrastructureEventResource struct {
-	ResourceType InfrastructureEventResourceType
-	Name         string
-	Ip           string
-	Uid          string
+	ResourceType InfrastructureEventResourceType `yaml:"resource-type"  json:"resourceType" xml:"resourceType,attr"`
+	Name         string                          `yaml:"name"  json:"name" xml:"name,attr"`
+	Ip           string                          `yaml:"ip"  json:"ip" xml:"ip,attr"`
+	Uid          string                          `yaml:"uid"  json:"uid" xml:"uid,attr"`
 }
 
 type InfrastructureEventType string
