@@ -1,19 +1,17 @@
 package graph
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
-	"net/http"
 	"sync"
 	"time"
+
+	"github.com/SunSince90/ASTRID-kube/informers"
 
 	"github.com/SunSince90/ASTRID-kube/utils"
 
 	"github.com/SunSince90/ASTRID-kube/settings"
 
 	log "github.com/sirupsen/logrus"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	types "github.com/SunSince90/ASTRID-kube/types"
 	core_v1 "k8s.io/api/core/v1"
@@ -208,27 +206,17 @@ func (i *InfrastructureInfoBuilder) generate() ([]byte, string, error) {
 
 	infrastructureInfo := func() ([]byte, string, error) {
 		i.info.Metadata.LastUpdate = time.Now().UTC()
-		nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
-		if err != nil {
-			log.Errorln("Cannot get nodes:", err)
-			return nil, "", nil
-		}
-
-		if len(i.info.Spec.Nodes) < 1 {
-			for _, node := range nodes.Items {
-				i.info.Spec.Nodes = append(i.info.Spec.Nodes, types.InfrastructureInfoNode{
-					//	TODO: check this out
-					IP: node.Status.Addresses[0].Address,
-				})
-			}
-		}
+		i.info.Spec.Nodes = informers.Nodes.Current()
 
 		data, contentType, err := utils.Marshal(settings.Settings.Formats.InfrastructureInfo, i.info)
-		log.Printf("# --- Infrastructure Info to send: --- #:\n%s\n\n# --- /Infrastructure Info to send --- #", string(data))
-		return data, contentType, nil
+		if err == nil {
+			log.Printf("# --- Infrastructure Info to send: --- #:\n%s\n\n# --- /Infrastructure Info to send --- #", string(data))
+		}
+		return data, contentType, err
 	}
 
 	infrastructureEvent := func() ([]byte, string, error) {
+		i.mostRecentEvent.EventTime = time.Now().UTC()
 		data, contentType, err := utils.Marshal(settings.Settings.Formats.InfrastructureEvent, i.mostRecentEvent)
 		log.Printf("# --- Infrastructure Event to send: --- #:\n%s\n\n# --- /Infrastructure Event to send --- #", string(data))
 		return data, contentType, err
@@ -266,16 +254,9 @@ func (i *InfrastructureInfoBuilder) sendRequest(data []byte, contentType string)
 	if i.sendingMode == "infrastructure-info" {
 		endPoint = settings.Settings.EndPoints.Verekube.InfrastructureInfo
 	}
-	req, err := http.NewRequest("POST", endPoint, bytes.NewBuffer(data))
-	req.Header.Set("Content-Type", contentType)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	response, err := utils.Post(endPoint, contentType, data)
 	if err != nil {
-		log.Errorln("Error while trying to send request:", err)
 		return
 	}
-	defer resp.Body.Close()
-
-	fmt.Println("Sent infrastructure info and received", resp.Status)
+	log.WithFields(log.Fields{"GRAPH": i.info.Metadata.Name}).Println("Sent data and received", response.StatusCode)
 }

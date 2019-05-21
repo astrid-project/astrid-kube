@@ -22,6 +22,7 @@ func main() {
 	log.Infoln("Starting...")
 
 	settings.Load("./settings/conf.yaml")
+	log.Infoln("Configuration file successfully loaded")
 
 	//----------------------------------------
 	//	Start
