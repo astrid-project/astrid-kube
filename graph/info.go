@@ -2,6 +2,7 @@ package graph
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -196,10 +197,24 @@ func (i *InfrastructureInfoBuilder) PopInstance(uid string) {
 }
 
 func (i *InfrastructureInfoBuilder) EnableSending() {
+	i.lock.Lock()
+	defer i.lock.Unlock()
 	i.sendingMode = "infrastructure-info"
+
+	i.demoDropAll()
 
 	//	Send immediately
 	i.send()
+}
+
+func (i *InfrastructureInfoBuilder) demoDropAll() {
+	ips := map[string]string{}
+
+	for name, instance := range i.deployedInstances {
+		ips[instance.value] = name
+	}
+
+	utils.DemoFakeDropAll(ips)
 }
 
 func (i *InfrastructureInfoBuilder) generate() ([]byte, string, error) {
@@ -254,6 +269,13 @@ func (i *InfrastructureInfoBuilder) sendRequest(data []byte, contentType string)
 	if i.sendingMode == "infrastructure-info" {
 		endPoint = settings.Settings.EndPoints.Verekube.InfrastructureInfo
 	}
+
+	//	Stop and explain
+	fmt.Println("\t\t\t--- STOP")
+	text2 := ""
+	fmt.Scanln(&text2)
+	fmt.Println("\t\t\t--- Resuming...")
+
 	response, err := utils.Post(endPoint, contentType, data)
 	if err != nil {
 		return
