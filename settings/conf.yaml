@@ -2,7 +2,9 @@ fwInitTimer: 15
 paths:
   kubeconfig: 
 endpoints:
-  verekube: http://192.168.122.78:8083/register/insfrastructure
+  verekube: 
+    infrastucture-info: http://192.168.122.78:8083/register/insfrastructure
+    infrastucture-event: 
 formats:
   infrastructureInfo: xml
   infrastructureEvent: xml

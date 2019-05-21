@@ -10,7 +10,12 @@ type Settings struct {
 }
 
 type EndPoints struct {
-	Verekube string `yaml:"verekube"`
+	Verekube VerekubeEndPoints `yaml:"verekube"`
+}
+
+type VerekubeEndPoints struct {
+	InfrastructureInfo  string `yaml:"infrastructure-info"`
+	InfrastructureEvent string `yaml:"infrastructure-event"`
 }
 
 type Formats struct {
