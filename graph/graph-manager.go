@@ -34,8 +34,6 @@ type graphManager struct {
 
 // InitManager will initialize the graph manager
 func InitManager(clientset kubernetes.Interface, stop chan struct{}) Manager {
-	log.Infoln("Starting graph manager")
-
 	manager := &graphManager{
 		clientset:       clientset,
 		stop:            stop,
@@ -57,6 +55,7 @@ func InitManager(clientset kubernetes.Interface, stop chan struct{}) Manager {
 	}, nil, nil)
 	manager.nodeInformer.Start()*/
 
+	log.Infoln("Watching for changes in Kubernetes...")
 	return manager
 }
 

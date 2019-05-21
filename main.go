@@ -5,15 +5,11 @@ import (
 	"os/signal"
 
 	graph "github.com/SunSince90/ASTRID-kube/graph"
+	"github.com/SunSince90/ASTRID-kube/settings"
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-)
-
-const (
-	// TODO: absolutely change this
-	kubeconfig = "/home/elis/.kube/config"
 )
 
 var (
@@ -24,6 +20,8 @@ var (
 
 func main() {
 	log.Infoln("Starting...")
+
+	settings.Load("./settings/conf.yaml")
 
 	//----------------------------------------
 	//	Start
@@ -42,7 +40,7 @@ func main() {
 
 func getClientSet() kubernetes.Interface {
 	//	Use the current context in kubeconfig
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err := clientcmd.BuildConfigFromFlags("", settings.Settings.Paths.Kubeconfig)
 	if err != nil {
 		panic(err.Error())
 	}

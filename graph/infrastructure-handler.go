@@ -1,10 +1,13 @@
 package graph
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/SunSince90/ASTRID-kube/settings"
 
 	"github.com/SunSince90/ASTRID-kube/utils"
 
@@ -31,6 +34,7 @@ type InfrastructureHandler struct {
 	servBarrier         chan struct{}
 	resources           map[string]bool
 	deployments         map[string]*count
+	securityComponents  map[string][]string
 	services            map[string]*core_v1.ServiceSpec
 	lock                sync.Mutex
 	infoBuilder         InfrastructureInfo
@@ -50,20 +54,21 @@ type serviceInfo struct {
 func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastructure, error) {
 	//	the handler
 	inf := &InfrastructureHandler{
-		name:        namespace.Name,
-		labels:      namespace.Labels,
-		depBarrier:  make(chan struct{}),
-		servBarrier: make(chan struct{}),
-		clientset:   clientset,
-		deployments: map[string]*count{},
-		services:    map[string]*core_v1.ServiceSpec{},
-		resources:   map[string]bool{},
-		log:         log.New().WithFields(log.Fields{"GRAPH": namespace.Name}),
-		initialized: false,
-		infoBuilder: newBuilder(clientset, namespace.Name),
+		name:               namespace.Name,
+		labels:             namespace.Labels,
+		depBarrier:         make(chan struct{}),
+		servBarrier:        make(chan struct{}),
+		clientset:          clientset,
+		deployments:        map[string]*count{},
+		securityComponents: map[string][]string{},
+		services:           map[string]*core_v1.ServiceSpec{},
+		resources:          map[string]bool{},
+		log:                log.New().WithFields(log.Fields{"GRAPH": namespace.Name}),
+		initialized:        false,
+		infoBuilder:        newBuilder(clientset, namespace.Name),
 	}
 
-	inf.log.Infoln("Starting graph handler for graph", namespace.Name)
+	inf.log.Infoln("Detected new graph:\t", namespace.Name)
 
 	if len(namespace.Annotations) < 1 {
 		inf.log.Errorln("Namespace has no annotations. Will stop here.")
@@ -94,9 +99,10 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 		inf.handleNewService(s)
 	}, nil, nil)
 	inf.servicesInformer = servInformer
-	servInformer.Start()
+	//	Update: this is going to be started when all the deployments have been found
+	//servInformer.Start()
 
-	go inf.listen()
+	go inf.watch()
 
 	return inf, nil
 }
@@ -105,15 +111,19 @@ func (handler *InfrastructureHandler) handleNewDeployment(deployment *apps_v1.De
 	handler.lock.Lock()
 	defer handler.lock.Unlock()
 
-	handler.log.Infoln("Detected deployment with name:", deployment.Name)
+	handler.log.Infoln("Detected a new Kubernetes Deployment resource:", deployment.Name)
 
 	//	Get replicas
 	handler.deployments[deployment.Name] = &count{
 		needed:  *deployment.Spec.Replicas,
 		current: 0,
 	}
+	handler.securityComponents[deployment.Name] = handler.parseSecurityComponents(deployment.Annotations)
+	if len(handler.securityComponents[deployment.Name]) > 0 {
+		handler.log.Infof("%s needs to be enriched with the following security components: %s", deployment.Name, strings.Join(handler.securityComponents[deployment.Name], ","))
+	}
 
-	//	Do we have all deployments?
+	//	Do we have all deployments? If we do, and we have all the needed ones, then we can close the deployment barrier
 	if len(handler.deployments) != len(handler.resources) {
 		return
 	}
@@ -122,19 +132,34 @@ func (handler *InfrastructureHandler) handleNewDeployment(deployment *apps_v1.De
 			return
 		}
 	}
+	handler.servicesInformer.Start()
 	close(handler.depBarrier)
+}
+
+func (handler *InfrastructureHandler) parseSecurityComponents(annotations map[string]string) []string {
+	securityComponents := []string{}
+
+	//	Get the security components
+	sc, exists := annotations["astrid.io/security-components"]
+	if !exists {
+		return []string{}
+	}
+
+	data := []byte(sc)
+	json.Unmarshal(data, &securityComponents)
+	return securityComponents
 }
 
 func (handler *InfrastructureHandler) handleNewService(service *core_v1.Service) {
 	handler.lock.Lock()
 	defer handler.lock.Unlock()
 
-	handler.log.Infoln("Detected service with name:", service.Name)
+	handler.log.Infoln("Detected a new Kubernetes Service resource:", service.Name)
 
 	handler.services[service.Name] = &service.Spec
-	handler.infoBuilder.PushService(service.Name, &service.Spec)
+	handler.infoBuilder.PushService(service.Name, &service.Spec, handler.securityComponents[service.Name])
 
-	//	Do we have all services?
+	//	Do we have all services? If yes, and we have all of them, then we can close the service barrier
 	if len(handler.services) != len(handler.resources) {
 		return
 	}
@@ -146,21 +171,23 @@ func (handler *InfrastructureHandler) handleNewService(service *core_v1.Service)
 	close(handler.servBarrier)
 }
 
-func (handler *InfrastructureHandler) listen() {
+func (handler *InfrastructureHandler) watch() {
 	//	Wait for services discovery
 	<-handler.servBarrier
-	handler.log.Infoln("Found all services needed for this graph")
+	handler.log.Infoln("Found all Service resources needed for this graph")
 
 	//	Wait for deployments discovery
 	<-handler.depBarrier
-	handler.log.Infoln("Found all deployments needed for this graph")
+	handler.log.Infoln("Found all Deployment resources needed for this graph")
 
-	handler.log.Infoln("Going to start listening for pod life cycle events.")
+	handler.log.Infoln("Watching for pod events...")
+
 	//	Start listening for pods
 	podInformer := informer.New(astrid_types.Pods, handler.name)
 	podInformer.AddEventHandler(func(obj interface{}) {
+		/* New pod events are going to be ignored.
 		p := obj.(*core_v1.Pod)
-		handler.handlePod(p)
+		handler.handlePod(p)*/
 	}, func(old, obj interface{}) {
 		p := obj.(*core_v1.Pod)
 		handler.handlePod(p)
@@ -178,42 +205,48 @@ func (handler *InfrastructureHandler) handlePod(pod *core_v1.Pod) {
 		return
 	}
 
-	//	This is improbable, but just in case
-	if len(pod.Labels) < 1 {
+	//	This was needed to check the owner deployment of a pod.
+	//	But for now it is not needed
+	/*if len(pod.Labels) < 1 {
 		return
 	}
+	if len(pod.Annotations) < 1 {
+		return
+	}*/
 
 	if pod.ObjectMeta.DeletionTimestamp != nil {
 		return
 	}
 
 	//	Doing it here so we can speed up some parts
-	shouldStop := func() (*count, bool) {
+	shouldStop := func() (string, *count, bool) {
 		handler.lock.Lock()
 		defer handler.lock.Unlock()
 
-		depName, exists := pod.Labels["astrid.io/deployment"]
+		//	UPDATE: for now, deployment's name is taken by checking instance's name, look below
+		/*depName, exists := pod.Annotations["astrid.io/deployment"]
 		if !exists {
-			handler.log.Errorln(pod.Name, "does not have a deployment label")
-			return nil, true
-		}
+			handler.log.Errorln(pod.Name, "does not have a deployment annotation")
+			return "", nil, true
+		}*/
+		depName := strings.Split(pod.Name, "-")[0]
 
 		dep, exists := handler.deployments[depName]
 		if !exists {
 			handler.log.Errorln(depName, "does not exist")
-			return nil, true
+			return "", nil, true
 		}
 
-		return dep, false
+		return depName, dep, false
 	}
 
-	dep, stop := shouldStop()
+	depName, dep, stop := shouldStop()
 	if stop {
 		return
 	}
 
-	handler.log.Infoln("Detected running pod:", pod.Name)
-	time.AfterFunc(time.Second*5, func() {
+	handler.log.Infof("[%s] Detected running instance with pod name %s and IP %s", depName, pod.Name, pod.Status.PodIP)
+	time.AfterFunc(time.Second*settings.Settings.FwInitTimer, func() {
 		handler.setupFirewall(pod, dep)
 	})
 }
@@ -222,32 +255,33 @@ func (handler *InfrastructureHandler) setupFirewall(pod *core_v1.Pod, dep *count
 	//	shorthands
 	ip := pod.Status.PodIP
 	name := pod.Name
-	service := pod.Labels["astrid.io/service"]
+	//	UPDATE: main service name is derived by pod's name
+	//service := pod.Annotations["astrid.io/service"]
+	service := strings.Split(pod.Name, "-")[0]
 
-	time.AfterFunc(time.Second*10, func() {
-		if !utils.CreateFirewall(ip) {
-			return
-		}
-		handler.log.Infoln("Created firewall for pod:", name)
-		if !utils.AttachFirewall(ip) {
-			return
-		}
-		handler.log.Infoln("Attached firewall to pod:", name)
+	if !utils.CreateFirewall(ip) {
+		return
+	}
+	handler.log.Infoln("Created firewall for pod:", name)
+	if !utils.AttachFirewall(ip) {
+		return
+	}
+	handler.log.Infoln("Attached firewall to pod:", name)
 
-		//	TODO: look into name as uid
-		handler.infoBuilder.PushInstance(service, ip, name)
+	//	TODO: look into name as uid
+	handler.infoBuilder.PushInstance(service, ip, name)
 
-		handler.lock.Lock()
-		defer handler.lock.Unlock()
+	handler.lock.Lock()
+	defer handler.lock.Unlock()
 
-		if handler.initialized {
-			return
-		}
-		dep.current++
-		if dep.current == dep.needed {
-			handler.canBuildInfo()
-		}
-	})
+	if handler.initialized {
+		return
+	}
+	dep.current++
+	if dep.current == dep.needed {
+		handler.canBuildInfo()
+	}
+
 }
 
 func (handler *InfrastructureHandler) canBuildInfo() {
@@ -260,5 +294,5 @@ func (handler *InfrastructureHandler) canBuildInfo() {
 
 	handler.initialized = true
 	handler.log.Infoln("The graph is fully running. Building Infrastructure Info...")
-	handler.infoBuilder.ToggleSending()
+	handler.infoBuilder.EnableSending()
 }

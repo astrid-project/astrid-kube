@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"encoding/json"
-	"encoding/xml"
+	"github.com/SunSince90/ASTRID-kube/utils"
+
+	"github.com/SunSince90/ASTRID-kube/settings"
 
 	log "github.com/sirupsen/logrus"
-	yaml "gopkg.in/yaml.v2"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	types "github.com/SunSince90/ASTRID-kube/types"
@@ -19,25 +19,32 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-const (
-	endPoint string = "http://192.168.122.78:8083/register/insfrastructure"
-)
-
 type InfrastructureInfo interface {
-	PushService(string, *core_v1.ServiceSpec)
+	PushService(string, *core_v1.ServiceSpec, []string)
 	PushInstance(string, string, string)
 	PopInstance(string)
-	ToggleSending()
-	Build(types.EncodingType)
+	EnableSending()
+	//Build(types.EncodingType)
 }
 
 type InfrastructureInfoBuilder struct {
 	lock              sync.Mutex
 	info              types.InfrastructureInfo
-	deployedServices  map[string]int
-	deployedInstances map[string]*offset
+	deployedServices  map[string]*serviceOffset
+	deployedInstances map[string]*instanceOffset
 	clientset         kubernetes.Interface
-	canSend           bool
+	sendingMode       string
+}
+
+type serviceOffset struct {
+	securityComponents []string
+	position           int
+}
+
+type instanceOffset struct {
+	value    string
+	position int
+	owner    string
 }
 
 func newBuilder(clientset kubernetes.Interface, name string) InfrastructureInfo {
@@ -53,19 +60,13 @@ func newBuilder(clientset kubernetes.Interface, name string) InfrastructureInfo 
 	return &InfrastructureInfoBuilder{
 		info:              info,
 		clientset:         clientset,
-		deployedServices:  map[string]int{},
-		deployedInstances: map[string]*offset{},
-		canSend:           false,
+		deployedServices:  map[string]*serviceOffset{},
+		deployedInstances: map[string]*instanceOffset{},
+		sendingMode:       "",
 	}
 }
 
-type offset struct {
-	value    string
-	position int
-	owner    string
-}
-
-func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.ServiceSpec) {
+func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.ServiceSpec, securityComponents []string) {
 	i.lock.Lock()
 	defer i.lock.Unlock()
 
@@ -73,9 +74,19 @@ func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.Servi
 		return
 	}
 
-	i.deployedServices[name] = len(i.info.Spec.Services)
+	i.deployedServices[name] = &serviceOffset{
+		position:           len(i.info.Spec.Services),
+		securityComponents: securityComponents,
+	}
 	service := types.InfrastructureInfoService{
 		Name: name,
+	}
+
+	//	Put security components
+	for _, sc := range securityComponents {
+		service.SecurityComponents = append(service.SecurityComponents, types.InfrastructureInfoSecurityComponent{
+			Name: sc,
+		})
 	}
 
 	for _, ports := range spec.Ports {
@@ -109,10 +120,11 @@ func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
 	i.lock.Lock()
 	defer i.lock.Unlock()
 
-	serviceOffset, exists := i.deployedServices[service]
+	s, exists := i.deployedServices[service]
 	if !exists {
 		return
 	}
+	serviceOffset := s.position
 
 	existingIP, exists := i.deployedInstances[uid]
 	if exists {
@@ -121,7 +133,7 @@ func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
 		}
 		existingIP.value = ip
 	} else {
-		i.deployedInstances[uid] = &offset{
+		i.deployedInstances[uid] = &instanceOffset{
 			position: len(i.info.Spec.Services[serviceOffset].Instances),
 			value:    ip,
 			owner:    service,
@@ -133,7 +145,7 @@ func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
 		UID: uid,
 	})
 
-	i.send(types.XML)
+	i.send()
 }
 
 func (i *InfrastructureInfoBuilder) PopInstance(uid string) {
@@ -145,10 +157,11 @@ func (i *InfrastructureInfoBuilder) PopInstance(uid string) {
 		return
 	}
 
-	serviceOffset, exists := i.deployedServices[instance.owner]
+	s, exists := i.deployedServices[instance.owner]
 	if !exists {
 		return
 	}
+	serviceOffset := s.position
 
 	//	Only one?
 	if len(i.info.Spec.Services[serviceOffset].Instances) == 1 {
@@ -158,19 +171,17 @@ func (i *InfrastructureInfoBuilder) PopInstance(uid string) {
 		t := instance.position
 		i.info.Spec.Services[serviceOffset].Instances = append(i.info.Spec.Services[serviceOffset].Instances[:t], i.info.Spec.Services[serviceOffset].Instances[t+1:]...)
 	}
-	i.send(types.XML)
+	i.send()
 }
 
-func (i *InfrastructureInfoBuilder) ToggleSending() {
-	i.canSend = !i.canSend
+func (i *InfrastructureInfoBuilder) EnableSending() {
+	i.sendingMode = "infrastructure-info"
 
 	//	Send immediately
-	if i.canSend {
-		i.send(types.XML)
-	}
+	i.send()
 }
 
-func (i *InfrastructureInfoBuilder) Build(to types.EncodingType) {
+/*func (i *InfrastructureInfoBuilder) Build(to types.EncodingType) {
 	i.lock.Lock()
 	defer i.lock.Unlock()
 
@@ -224,89 +235,56 @@ func (i *InfrastructureInfoBuilder) Build(to types.EncodingType) {
 	case types.JSON:
 		json()
 	}
+}*/
+
+func (i *InfrastructureInfoBuilder) generate() ([]byte, string, error) {
+
+	infrastructureInfo := func() ([]byte, string, error) {
+		i.info.Metadata.LastUpdate = time.Now().UTC()
+		nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
+		if err != nil {
+			log.Errorln("Cannot get nodes:", err)
+			return nil, "", nil
+		}
+
+		if len(i.info.Spec.Nodes) < 1 {
+			for _, node := range nodes.Items {
+				i.info.Spec.Nodes = append(i.info.Spec.Nodes, types.InfrastructureInfoNode{
+					//	TODO: check this out
+					IP: node.Status.Addresses[0].Address,
+				})
+			}
+		}
+
+		data, contentType, err := utils.Marshal(settings.Settings.Formats.InfrastructureInfo, i.info)
+		log.Printf("# --- Infrastructure Info to send: --- #:\n%s\n\n# --- /Infrastructure Info to send --- #", string(data))
+		return data, contentType, nil
+	}
+
+	switch i.sendingMode {
+	case "infrastructure-info":
+		return infrastructureInfo()
+	}
+
+	return nil, "", nil
 }
 
-func (i *InfrastructureInfoBuilder) generate(to types.EncodingType) ([]byte, error) {
-	nodes, err := i.clientset.CoreV1().Nodes().List(meta_v1.ListOptions{})
-	if err != nil {
-		log.Errorln("Cannot get nodes:", err)
-		return nil, nil
-	}
-
-	if len(i.info.Spec.Nodes) < 1 {
-		for _, node := range nodes.Items {
-			i.info.Spec.Nodes = append(i.info.Spec.Nodes, types.InfrastructureInfoNode{
-				//	TODO: check this out
-				IP: node.Status.Addresses[0].Address,
-			})
-		}
-	}
-
-	yaml := func() ([]byte, error) {
-		data, err := yaml.Marshal(&i.info)
-		if err != nil {
-			log.Errorln("Cannot marshal to yaml:", err)
-			return nil, err
-		}
-		return data, nil
-	}
-
-	xml := func() ([]byte, error) {
-		data, err := xml.MarshalIndent(&i.info, "", "   ")
-		if err != nil {
-			log.Errorln("Cannot marshal to xml:", err)
-			return nil, err
-		}
-		return data, nil
-	}
-
-	json := func() ([]byte, error) {
-		data, err := json.MarshalIndent(&i.info, "", "   ")
-		if err != nil {
-			log.Errorln("Cannot marshal to json:", err)
-			return nil, err
-		}
-		return data, nil
-	}
-
-	var data []byte
-	switch to {
-	case types.XML:
-		data, err = xml()
-	case types.YAML:
-		data, err = yaml()
-	case types.JSON:
-		data, err = json()
-	}
-
-	log.Printf("# --- Infrastructure Info to send: --- #:\n%s\n\n# --- /Infrastructure Info to send --- #", string(data))
-	return data, nil
-}
-
-func (i *InfrastructureInfoBuilder) send(to types.EncodingType) {
-	if !i.canSend {
+func (i *InfrastructureInfoBuilder) send() {
+	if len(i.sendingMode) < 1 {
 		return
 	}
 
-	//	update
-	i.info.Metadata.LastUpdate = time.Now().UTC()
-
-	data, err := i.generate(to)
+	data, contentType, err := i.generate()
 	if err != nil {
 		return
 	}
 
-	var contentType string
-	switch to {
-	case types.XML:
-		contentType = types.ContentTypeXML
-	case types.JSON:
-		contentType = types.ContentTypeJSON
-	case types.YAML:
-		contentType = types.ContentTypeYAML
-	}
+	i.sendRequest(data, contentType)
+}
 
-	//	TODO: change these in a better format
+func (i *InfrastructureInfoBuilder) sendRequest(data []byte, contentType string) {
+	//	TODO: change endpoint based on event or info
+	endPoint := settings.Settings.EndPoints.Verekube
 	req, err := http.NewRequest("POST", endPoint, bytes.NewBuffer(data))
 	req.Header.Set("Content-Type", contentType)
 
