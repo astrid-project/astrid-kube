@@ -1,15 +1,7 @@
 package informers
 
-import (
-	"github.com/SunSince90/ASTRID-kube/settings"
-	astrid_types "github.com/SunSince90/ASTRID-kube/types"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-)
-
 var (
-	clientset kubernetes.Interface
-	Nodes     *NodeInformer
+	Nodes *NodeInformer
 )
 
 type Informer interface {
@@ -19,7 +11,7 @@ type Informer interface {
 	AddEventHandler(func(interface{}), func(interface{}, interface{}), func(interface{}))
 }
 
-func init() {
+/*func init() {
 	//	Use the current context in kubeconfig
 	config, err := clientcmd.BuildConfigFromFlags("", settings.Settings.Paths.Kubeconfig)
 	if err != nil {
@@ -33,8 +25,4 @@ func init() {
 	}
 
 	clientset = _clientset
-
-	//	Set up the node informer
-	Nodes = New(astrid_types.Nodes, "").(*NodeInformer)
-	Nodes.Start()
-}
+}*/

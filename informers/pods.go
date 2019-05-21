@@ -1,6 +1,7 @@
 package informers
 
 import (
+	"github.com/SunSince90/ASTRID-kube/settings"
 	log "github.com/sirupsen/logrus"
 	core_v1 "k8s.io/api/core/v1"
 
@@ -31,10 +32,10 @@ func (podInformer *PodsInformer) initInformer() {
 	//	Get the informer
 	informer := cache.NewSharedIndexInformer(&cache.ListWatch{
 		ListFunc: func(options meta_v1.ListOptions) (runtime.Object, error) {
-			return clientset.CoreV1().Pods(podInformer.namespace).List(options)
+			return settings.Clientset.CoreV1().Pods(podInformer.namespace).List(options)
 		},
 		WatchFunc: func(options meta_v1.ListOptions) (watch.Interface, error) {
-			return clientset.CoreV1().Pods(podInformer.namespace).Watch(options)
+			return settings.Clientset.CoreV1().Pods(podInformer.namespace).Watch(options)
 		},
 	},
 		&core_v1.Pod{},

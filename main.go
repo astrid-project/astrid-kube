@@ -4,6 +4,10 @@ import (
 	"os"
 	"os/signal"
 
+	types "github.com/SunSince90/ASTRID-kube/types"
+
+	"github.com/SunSince90/ASTRID-kube/informers"
+
 	graph "github.com/SunSince90/ASTRID-kube/graph"
 	"github.com/SunSince90/ASTRID-kube/settings"
 
@@ -28,6 +32,12 @@ func main() {
 	//	Start
 	//----------------------------------------
 	clientset := getClientSet()
+	settings.Clientset = clientset
+
+	//	Set up the node informer
+	informers.Nodes = informers.New(types.Nodes, "").(*informers.NodeInformer)
+	informers.Nodes.Start()
+
 	signalChan = make(chan os.Signal, 1)
 	stop = make(chan struct{})
 	graphManager := graph.InitManager(clientset, stop)

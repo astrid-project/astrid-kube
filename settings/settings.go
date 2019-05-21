@@ -5,12 +5,14 @@ import (
 
 	"github.com/SunSince90/ASTRID-kube/types"
 	"gopkg.in/yaml.v2"
+	"k8s.io/client-go/kubernetes"
 
 	log "github.com/sirupsen/logrus"
 )
 
 var (
-	Settings types.Settings
+	Settings  types.Settings
+	Clientset kubernetes.Interface
 )
 
 func Load(path string) {

@@ -3,6 +3,8 @@ package informers
 import (
 	"sync"
 
+	"github.com/SunSince90/ASTRID-kube/settings"
+
 	types "github.com/SunSince90/ASTRID-kube/types"
 	log "github.com/sirupsen/logrus"
 	core_v1 "k8s.io/api/core/v1"
@@ -34,10 +36,10 @@ func (nodeInformer *NodeInformer) initInformer() {
 	//	Get the informer
 	informer := cache.NewSharedIndexInformer(&cache.ListWatch{
 		ListFunc: func(options meta_v1.ListOptions) (runtime.Object, error) {
-			return clientset.CoreV1().Nodes().List(options)
+			return settings.Clientset.CoreV1().Nodes().List(options)
 		},
 		WatchFunc: func(options meta_v1.ListOptions) (watch.Interface, error) {
-			return clientset.CoreV1().Nodes().Watch(options)
+			return settings.Clientset.CoreV1().Nodes().Watch(options)
 		},
 	},
 		&core_v1.Node{},
