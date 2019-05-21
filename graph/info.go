@@ -1,8 +1,12 @@
 package graph
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
 	"sync"
 	"time"
 
@@ -281,4 +285,22 @@ func (i *InfrastructureInfoBuilder) sendRequest(data []byte, contentType string)
 		return
 	}
 	log.WithFields(log.Fields{"GRAPH": i.info.Metadata.Name}).Println("Sent data and received", response.StatusCode)
+
+	i.forward(response.Body)
+}
+
+func (i *InfrastructureInfoBuilder) forward(body io.ReadCloser) {
+	data, err := ioutil.ReadAll(body)
+	if err != nil {
+		log.Println("Error in decoding data")
+	}
+
+	endPoint := settings.Settings.EndPoints.FakeCB.Configuration
+	req, err := http.NewRequest("POST", endPoint, bytes.NewBuffer(data))
+	req.Header.Set("Content-Type", "application/xml")
+	client := &http.Client{}
+	_, err = client.Do(req)
+	if err != nil {
+		log.Errorln("Error while forwarding:", err)
+	}
 }
