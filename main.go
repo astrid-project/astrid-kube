@@ -4,6 +4,10 @@ import (
 	"os"
 	"os/signal"
 
+	types "github.com/SunSince90/ASTRID-kube/types"
+
+	"github.com/SunSince90/ASTRID-kube/informers"
+
 	graph "github.com/SunSince90/ASTRID-kube/graph"
 	"github.com/SunSince90/ASTRID-kube/settings"
 
@@ -22,11 +26,19 @@ func main() {
 	log.Infoln("Starting...")
 
 	settings.Load("./settings/conf.yaml")
+	log.Infoln("Configuration file successfully loaded")
 
 	//----------------------------------------
 	//	Start
 	//----------------------------------------
 	clientset := getClientSet()
+	settings.Clientset = clientset
+
+	//	Set up the node informer
+	informers.Nodes = informers.New(types.Nodes, "").(*informers.NodeInformer)
+	informers.Nodes.AddEventHandler(nil, nil, nil)
+	informers.Nodes.Start()
+
 	signalChan = make(chan os.Signal, 1)
 	stop = make(chan struct{})
 	graphManager := graph.InitManager(clientset, stop)

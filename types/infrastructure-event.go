@@ -1,8 +1,11 @@
 package types
 
+import "time"
+
 type InfrastructureEvent struct {
 	Type      InfrastructureEventType     `yaml:"type"  json:"type" xml:"type,attr"`
 	EventData InfrastructureEventResource `yaml:"event-data"  json:"eventData" xml:"EventData"`
+	EventTime time.Time                   `yaml:"event-time"  json:"eventTime" xml:"EventTime"`
 }
 
 type InfrastructureEventResource struct {

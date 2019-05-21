@@ -1,16 +1,8 @@
 package informers
 
-import (
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+var (
+	Nodes *NodeInformer
 )
-
-const (
-	// TODO: absolutely change this
-	kubeconfig = "/home/elis/.kube/config"
-)
-
-var clientset kubernetes.Interface
 
 type Informer interface {
 	initInformer()
@@ -19,9 +11,9 @@ type Informer interface {
 	AddEventHandler(func(interface{}), func(interface{}, interface{}), func(interface{}))
 }
 
-func init() {
+/*func init() {
 	//	Use the current context in kubeconfig
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err := clientcmd.BuildConfigFromFlags("", settings.Settings.Paths.Kubeconfig)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -33,4 +25,4 @@ func init() {
 	}
 
 	clientset = _clientset
-}
+}*/
