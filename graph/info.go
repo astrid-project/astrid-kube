@@ -245,13 +245,13 @@ func (i *InfrastructureInfoBuilder) generate() ([]byte, string, error) {
 }
 
 func (i *InfrastructureInfoBuilder) send() {
-	defer func() {
-		i.sendingMode = "infrastructure-event"
-	}()
-
 	if len(i.sendingMode) < 1 {
 		return
 	}
+
+	defer func() {
+		i.sendingMode = "infrastructure-event"
+	}()
 
 	data, contentType, err := i.generate()
 	if err != nil {
