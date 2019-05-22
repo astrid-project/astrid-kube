@@ -205,9 +205,9 @@ func (handler *InfrastructureHandler) watch() {
 	//	Start listening for pods
 	podInformer := informer.New(astrid_types.Pods, handler.name)
 	podInformer.AddEventHandler(func(obj interface{}) {
-		/* New pod events are going to be ignored.
+		// New pod events are going to be ignored.
 		p := obj.(*core_v1.Pod)
-		handler.handlePod(p)*/
+		handler.handlePod(p)
 	}, func(old, obj interface{}) {
 		p := obj.(*core_v1.Pod)
 		handler.handlePod(p)

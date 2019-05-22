@@ -289,16 +289,15 @@ func (i *InfrastructureInfoBuilder) sendRequest(data []byte, contentType string)
 		return
 	}
 	log.WithFields(log.Fields{"GRAPH": i.info.Metadata.Name}).Println("Sent data and received", response.StatusCode)
-
+	defer response.Body.Close()
 	i.forward(response.Body)
 }
 
 func (i *InfrastructureInfoBuilder) forward(body io.ReadCloser) {
 	data, err := ioutil.ReadAll(body)
 	if err != nil {
-		log.Println("Error in decoding data")
+		log.Errorln("Error in decoding data")
 	}
-
 	endPoint := settings.Settings.EndPoints.FakeCB.Configuration
 	req, err := http.NewRequest("POST", endPoint, bytes.NewBuffer(data))
 	req.Header.Set("Content-Type", "application/xml")
