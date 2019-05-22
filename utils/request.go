@@ -17,7 +17,5 @@ func Post(endPoint, contentType string, data []byte) (*http.Response, error) {
 		log.Errorln("Error while trying to send request:", err)
 		return nil, err
 	}
-	defer resp.Body.Close()
-
 	return resp, err
 }
