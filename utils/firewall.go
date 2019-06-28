@@ -47,8 +47,8 @@ func allowAllInPolycube(ip string) bool {
 		endPoint := "http://" + ip + ":9000/polycube/v1/firewall/fw/chain/ingress/append/"
 		rule := k8sfirewall.ChainRule{
 			Action: "forward",
-			Src:    ip,
-			Sport:  9000,
+			Dst:    ip,
+			Dport:  9000,
 		}
 		data, err := marshal(rule)
 		if err == nil {
@@ -66,8 +66,8 @@ func allowAllInPolycube(ip string) bool {
 		endPoint = "http://" + ip + ":9000/polycube/v1/firewall/fw/chain/egress/append/"
 		rule = k8sfirewall.ChainRule{
 			Action: "forward",
-			Dst:    ip,
-			Dport:  9000,
+			Src:    ip,
+			Sport:  9000,
 		}
 		data, err = marshal(rule)
 		if err == nil {
