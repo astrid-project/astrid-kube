@@ -91,13 +91,34 @@ func DemoFakeDropAll(ips map[string]string) {
 	}
 
 	push := func(ip, target string) {
+
+		//	Ingress
 		endPoint := "http://" + ip + ":9000/polycube/v1/firewall/fw/chain/ingress/append/"
 		rule := k8sfirewall.ChainRule{
+			Action: "drop",
+			Src:    ip,
+			Dst:    target,
+		}
+		data, err := marshal(rule)
+		if err == nil {
+			req, err := http.NewRequest("POST", endPoint, bytes.NewBuffer(data))
+			req.Header.Set("Content-Type", "application/json")
+
+			client := &http.Client{}
+			_, err = client.Do(req)
+			if err != nil {
+				log.Errorln("Error while trying to send request:", err)
+			}
+		}
+
+		// Egress
+		endPoint = "http://" + ip + ":9000/polycube/v1/firewall/fw/chain/egress/append/"
+		rule = k8sfirewall.ChainRule{
 			Action: "drop",
 			Src:    target,
 			Dst:    ip,
 		}
-		data, err := marshal(rule)
+		data, err = marshal(rule)
 		if err == nil {
 			req, err := http.NewRequest("POST", endPoint, bytes.NewBuffer(data))
 			req.Header.Set("Content-Type", "application/json")
@@ -111,6 +132,7 @@ func DemoFakeDropAll(ips map[string]string) {
 	}
 
 	apply := func(ip, name string) {
+		//	ingress
 		endPoint := "http://" + ip + ":9000/polycube/v1/firewall/fw/chain/ingress/apply-rules/"
 		req, err := http.NewRequest("POST", endPoint, nil)
 		req.Header.Set("Content-Type", "application/json")
@@ -121,7 +143,18 @@ func DemoFakeDropAll(ips map[string]string) {
 			log.Errorln("Error while trying to apply rules:", err)
 		}
 
-		log.Infoln("Applied drop all rule in", name)
+		//	egress
+		endPoint = "http://" + ip + ":9000/polycube/v1/firewall/fw/chain/egress/apply-rules/"
+		req, err = http.NewRequest("POST", endPoint, nil)
+		req.Header.Set("Content-Type", "application/json")
+		client = &http.Client{}
+
+		_, err = client.Do(req)
+		if err != nil {
+			log.Errorln("Error while trying to apply rules:", err)
+		}
+
+		log.Infoln(name, "is in a drop-all mode, waiting for policies.")
 	}
 
 	for currentIP, currentName := range ips {

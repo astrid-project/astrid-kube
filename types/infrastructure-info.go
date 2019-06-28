@@ -26,7 +26,7 @@ type InfrastructureInfoService struct {
 	Name               string                                `yaml:"name"  json:"name" xml:"name,attr"`
 	SecurityComponents []InfrastructureInfoSecurityComponent `yaml:"securityComponents"  json:"securityComponents" xml:"SecurityComponent"`
 	Ports              []InfrastructureInfoServicePort       `yaml:"ports"  json:"ports" xml:"Port"`
-	AmbassadorPort     InfrastructureInfoServicePort         `yaml:"ambassadorPort"  json:"ambassadorPort" xml:"AmbassadorPort"`
+	AmbassadorPort     InfrastructureInfoServicePort         //`yaml:"ambassadorPort"  json:"ambassadorPort" xml:"AmbassadorPort"`
 	Instances          []InfrastructureInfoServiceInstance   `yaml:"instances"  json:"instances" xml:"Instance"`
 }
 
