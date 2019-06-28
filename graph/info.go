@@ -205,7 +205,7 @@ func (i *InfrastructureInfoBuilder) EnableSending() {
 	defer i.lock.Unlock()
 	i.sendingMode = "infrastructure-info"
 
-	i.demoDropAll()
+	//i.demoDropAll()
 
 	//	Send immediately
 	i.send()

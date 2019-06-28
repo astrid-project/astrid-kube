@@ -22,10 +22,93 @@ func CreateFirewall(ip string) bool {
 		return false
 	}
 
-	if !changeDefaultForward(ip) {
+	if !allowAllInPolycube(ip) {
 		return false
 	}
+
+	/*if !changeDefaultForward(ip) {
+		return false
+	}*/
 	return setAsync(ip)
+}
+
+func allowAllInPolycube(ip string) bool {
+	marshal := func(rule k8sfirewall.ChainRule) ([]byte, error) {
+		data, err := json.MarshalIndent(&rule, "", "   ")
+		if err != nil {
+			log.Errorln("Cannot marshal to json:", err)
+			return nil, err
+		}
+		return data, nil
+	}
+
+	push := func(ip string) {
+		//	Ingress
+		endPoint := "http://" + ip + ":9000/polycube/v1/firewall/fw/chain/ingress/append/"
+		rule := k8sfirewall.ChainRule{
+			Action: "forward",
+			Src:    ip,
+			Sport:  9000,
+		}
+		data, err := marshal(rule)
+		if err == nil {
+			req, err := http.NewRequest("POST", endPoint, bytes.NewBuffer(data))
+			req.Header.Set("Content-Type", "application/json")
+
+			client := &http.Client{}
+			_, err = client.Do(req)
+			if err != nil {
+				log.Errorln("Error while trying to send request:", err)
+			}
+		}
+
+		// Egress
+		endPoint = "http://" + ip + ":9000/polycube/v1/firewall/fw/chain/egress/append/"
+		rule = k8sfirewall.ChainRule{
+			Action: "forward",
+			Dst:    ip,
+			Dport:  9000,
+		}
+		data, err = marshal(rule)
+		if err == nil {
+			req, err := http.NewRequest("POST", endPoint, bytes.NewBuffer(data))
+			req.Header.Set("Content-Type", "application/json")
+
+			client := &http.Client{}
+			_, err = client.Do(req)
+			if err != nil {
+				log.Errorln("Error while trying to send request:", err)
+			}
+		}
+	}
+
+	apply := func(ip string) {
+		//	ingress
+		endPoint := "http://" + ip + ":9000/polycube/v1/firewall/fw/chain/ingress/apply-rules/"
+		req, err := http.NewRequest("POST", endPoint, nil)
+		req.Header.Set("Content-Type", "application/json")
+		client := &http.Client{}
+
+		_, err = client.Do(req)
+		if err != nil {
+			log.Errorln("Error while trying to apply rules:", err)
+		}
+
+		//	egress
+		endPoint = "http://" + ip + ":9000/polycube/v1/firewall/fw/chain/egress/apply-rules/"
+		req, err = http.NewRequest("POST", endPoint, nil)
+		req.Header.Set("Content-Type", "application/json")
+		client = &http.Client{}
+
+		_, err = client.Do(req)
+		if err != nil {
+			log.Errorln("Error while trying to apply rules:", err)
+		}
+	}
+
+	push(ip)
+	apply(ip)
+	return true
 }
 
 func changeDefaultForward(ip string) bool {
