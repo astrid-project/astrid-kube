@@ -3,10 +3,10 @@ package types
 import "time"
 
 type InfrastructureEvent struct {
+	GraphName string                      `yaml:"graph-name"  json:"graphName" xml:"graphName,attr"`
 	Type      InfrastructureEventType     `yaml:"type"  json:"type" xml:"type,attr"`
 	EventData InfrastructureEventResource `yaml:"event-data"  json:"eventData" xml:"EventData"`
 	EventTime time.Time                   `yaml:"event-time"  json:"eventTime" xml:"EventTime"`
-	GraphName string                      `yaml:"graph-name"  json:"graphName" xml:"GraphName,attr"`
 }
 
 type InfrastructureEventResource struct {

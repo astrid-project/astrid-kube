@@ -190,7 +190,8 @@ func (i *InfrastructureInfoBuilder) PopInstance(uid string) {
 	}
 
 	i.mostRecentEvent = types.InfrastructureEvent{
-		Type: types.Delete,
+		GraphName: i.info.Metadata.Name,
+		Type:      types.Delete,
 		EventData: types.InfrastructureEventResource{
 			ResourceType: types.Pod,
 			Name:         instance.owner,
