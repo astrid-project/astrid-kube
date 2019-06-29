@@ -274,10 +274,10 @@ func (i *InfrastructureInfoBuilder) sendRequest(data []byte, contentType string)
 		endPoint = settings.Settings.EndPoints.Verekube.InfrastructureInfo
 
 		//	Stop and explain
-		log.Println("\t\t\t--- STOP")
+		fmt.Println("\t\t\t--- STOP")
 		text2 := ""
 		fmt.Scanln(&text2)
-		log.Println("\t\t\t--- Resuming...")
+		fmt.Println("\t\t\t--- Resuming...")
 	}
 
 	if len(endPoint) < 1 {
