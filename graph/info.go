@@ -97,11 +97,11 @@ func (i *InfrastructureInfoBuilder) PushService(name string, spec *core_v1.Servi
 
 	for _, ports := range spec.Ports {
 		if ports.Name == name+"-ambassador-port" {
-			service.AmbassadorPort = types.InfrastructureInfoServicePort{
+			/*service.AmbassadorPort = types.InfrastructureInfoServicePort{
 				Port:     9000,
 				Exposed:  ports.NodePort,
 				Protocol: types.TCP,
-			}
+			}*/
 		} else {
 			var protocol types.InfrastructureInfoProtocol
 			switch ports.Protocol {
