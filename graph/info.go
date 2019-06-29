@@ -153,7 +153,8 @@ func (i *InfrastructureInfoBuilder) PushInstance(service, ip, uid string) {
 
 	//	Put it in the most recent event
 	i.mostRecentEvent = types.InfrastructureEvent{
-		Type: types.New,
+		GraphName: i.info.Metadata.Name,
+		Type:      types.New,
 		EventData: types.InfrastructureEventResource{
 			ResourceType: types.Pod,
 			Name:         service,
@@ -282,6 +283,7 @@ func (i *InfrastructureInfoBuilder) sendRequest(data []byte, contentType string)
 
 	if len(endPoint) < 1 {
 		log.Errorln("No endpoint has been specified. Will stop here.")
+		return
 	}
 
 	response, err := utils.Post(endPoint, contentType, data)
