@@ -272,17 +272,17 @@ func (i *InfrastructureInfoBuilder) sendRequest(data []byte, contentType string)
 	endPoint := settings.Settings.EndPoints.Verekube.InfrastructureEvent
 	if i.sendingMode == "infrastructure-info" {
 		endPoint = settings.Settings.EndPoints.Verekube.InfrastructureInfo
-	} else {
-		//	For the demo, we are not sending events.
-		//	Just showing them.
-		return
+
+		//	Stop and explain
+		log.Println("\t\t\t--- STOP")
+		text2 := ""
+		fmt.Scanln(&text2)
+		log.Println("\t\t\t--- Resuming...")
 	}
 
-	//	Stop and explain
-	fmt.Println("\t\t\t--- STOP")
-	text2 := ""
-	fmt.Scanln(&text2)
-	fmt.Println("\t\t\t--- Resuming...")
+	if len(endPoint) < 1 {
+		log.Errorln("No endpoint has been specified. Will stop here.")
+	}
 
 	response, err := utils.Post(endPoint, contentType, data)
 	if err != nil {
