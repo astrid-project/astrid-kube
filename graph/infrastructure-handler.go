@@ -76,11 +76,18 @@ func new(clientset kubernetes.Interface, namespace *core_v1.Namespace) (Infrastr
 	}
 
 	//	Get all deployments needed
-	for name := range namespace.Annotations {
-		if strings.HasPrefix(name, "astrid.io/") {
-			actualName := strings.Split(name, "/")[1]
-			inf.resources[actualName] = true
-		}
+	deploymentsInNs, exists := namespace.Annotations["astrid.io/deployments"]
+	if !exists {
+		inf.log.Errorln("Could not found a list of deployments for this namespace. Will stop here.")
+		return nil, errors.New("Could not found a list of deployments for this namespace. Will stop here.")
+	}
+
+	data := []byte(deploymentsInNs)
+	deploymentsList := []string{}
+	json.Unmarshal(data, &deploymentsList)
+
+	for _, name := range deploymentsList {
+		inf.resources[name] = true
 	}
 
 	//	First let's look at deployments
