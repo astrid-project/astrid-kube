@@ -26,6 +26,10 @@ func CreateFirewall(ip string) bool {
 		return false
 	}
 
+	if !acceptEstablished(ip) {
+		return false
+	}
+
 	/*if !changeDefaultForward(ip) {
 		return false
 	}*/
@@ -130,6 +134,26 @@ func changeDefaultForward(ip string) bool {
 		}
 		defer resp.Body.Close()
 	}
+
+	return true
+}
+
+func acceptEstablished(ip string) bool {
+	jsonStr := []byte(`"ON"`)
+	client := http.Client{}
+
+	req, err := http.NewRequest("PATCH", "http://"+ip+":9000"+polycubePath+firewallPath+"fw/accept-established", bytes.NewBuffer(jsonStr))
+	if err != nil {
+		log.Infof("Could not set to accet established connections by default %s", err)
+		return false
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Infof("Could not set to accet established connections by default %s", err)
+		return false
+	}
+	defer resp.Body.Close()
 
 	return true
 }
