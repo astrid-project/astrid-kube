@@ -3,7 +3,6 @@ package graph
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -230,9 +229,12 @@ func (i *InfrastructureInfoBuilder) generate() ([]byte, string, error) {
 		i.info.Spec.Nodes = informers.Nodes.Current()
 
 		data, contentType, err := utils.Marshal(settings.Settings.Formats.InfrastructureInfo, i.info)
-		if err == nil {
-			log.Printf("# --- Infrastructure Info to send: --- #:\n%s\n\n# --- /Infrastructure Info to send --- #", string(data))
+		if err != nil {
+			log.Errof("An error occurred while trying to create the infrastructure info: %s. Will stop here.", err)
+			return nil, "", err
 		}
+
+		log.Infof("Infrastructure info built.")
 		return data, contentType, err
 	}
 
@@ -274,12 +276,6 @@ func (i *InfrastructureInfoBuilder) sendRequest(data []byte, contentType string)
 	endPoint := settings.Settings.EndPoints.Verekube.InfrastructureEvent
 	if i.sendingMode == "infrastructure-info" {
 		endPoint = settings.Settings.EndPoints.Verekube.InfrastructureInfo
-
-		//	Stop and explain
-		fmt.Println("\t\t\t--- STOP")
-		text2 := ""
-		fmt.Scanln(&text2)
-		fmt.Println("\t\t\t--- Resuming...")
 	}
 
 	if len(endPoint) < 1 {
