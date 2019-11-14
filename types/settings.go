@@ -11,7 +11,7 @@ type Settings struct {
 
 type EndPoints struct {
 	Verekube VerekubeEndPoints `yaml:"verekube"`
-	FakeCB   CBEndPoints       `yaml:"fake-cb"`
+	CB       CBEndPoints       `yaml:"cb"`
 }
 
 type CBEndPoints struct {

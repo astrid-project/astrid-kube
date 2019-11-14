@@ -5,7 +5,7 @@ endpoints:
   verekube: 
     infrastructure-info: http://192.168.122.78:8083/register/insfrastructure
     infrastructure-event: 
-  fake-cb:
+  cb:
     configuration: http://localhost:8083
 formats:
   infrastructure-info: xml
