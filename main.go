@@ -4,13 +4,11 @@ import (
 	"os"
 	"os/signal"
 
-	types "github.com/SunSince90/ASTRID-kube/types"
-
-	"github.com/SunSince90/ASTRID-kube/informers"
-
 	graph "github.com/SunSince90/ASTRID-kube/graph"
+	"github.com/SunSince90/ASTRID-kube/informers"
 	"github.com/SunSince90/ASTRID-kube/settings"
-
+	types "github.com/SunSince90/ASTRID-kube/types"
+	"github.com/kardianos/osext"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -25,7 +23,13 @@ var (
 func main() {
 	log.Infoln("Starting...")
 
-	settings.Load("./settings/conf.yaml")
+	// Get the current path
+	folderPath, err := osext.ExecutableFolder()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	settings.Load(folderPath + "/settings/conf.yaml")
 	log.Infoln("Configuration file loaded successfully")
 
 	//----------------------------------------
