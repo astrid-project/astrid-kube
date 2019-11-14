@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	k8sfirewall "github.com/SunSince90/polycube/src/components/k8s/utils/k8sfirewall"
+	k8sfirewall "github.com/polycube-network/polycube/src/components/k8s/utils/k8sfirewall"
 
 	log "github.com/sirupsen/logrus"
 )
