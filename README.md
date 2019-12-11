@@ -1,4 +1,4 @@
-@AUTHOR @SunSince90  Elis Lulja
+AUTHOR Elis Lulja [@SunSince90](https://github.com/SunSince90)
 
 # ASTRID-kube
 
