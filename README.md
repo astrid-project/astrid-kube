@@ -1,3 +1,5 @@
+@AUTHOR @SunSince90  Elis Lulja
+
 # ASTRID-kube
 
 ASTRID-kube watches for changes in Kubernetes related to namespaces and pods and later sends the resulting infrastructure to all modules interested in knowing it.
